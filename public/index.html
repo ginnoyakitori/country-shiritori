@@ -2,31 +2,164 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>国名しりとりカード</title>
-    <link rel="stylesheet" href="style.css">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+    <title>
+        国名しりとりカード
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="style.css">
 </head>
+
 <body>
 
-<h1>国名しりとりカード</h1>
+<!-- 開始画面 -->
 
-<div id="cards">
-    <div class="card" id="leftCard">?</div>
-    <div class="card" id="rightCard">?</div>
+<div id="startScreen">
+
+    <div class="start-card">
+
+        <h1 class="title">
+            国名しりとりカード
+        </h1>
+
+        <p class="description">
+            左の文字から始めて、国名・首都名だけで
+            しりとりを続け、
+            右の文字で終われば正解です。
+        </p>
+
+        <h2>
+            入力方法を選択
+        </h2>
+
+        <label class="method-label">
+
+            <input
+                type="radio"
+                name="inputMethod"
+                value="flick"
+                checked>
+
+            <span>
+                📱 フリック入力
+            </span>
+
+        </label>
+
+        <label class="method-label">
+
+            <input
+                type="radio"
+                name="inputMethod"
+                value="romaji">
+
+            <span>
+                ⌨️ ローマ字入力
+            </span>
+
+        </label>
+
+        <button id="startBtn">
+            ゲーム開始
+        </button>
+
+    </div>
+
 </div>
 
-<div id="condition"></div>
+<!-- ゲーム画面 -->
 
-<div class="input-area">
-    <input id="answer" type="text" placeholder="国名または首都名を入力">
+<div
+    id="gameScreen"
+    style="display:none;">
+
+    <h1>
+        国名しりとりカード
+    </h1>
+
+    <div id="cards">
+
+        <div
+            class="card"
+            id="leftCard">
+            ?
+        </div>
+
+        <div
+            class="card"
+            id="rightCard">
+            ?
+        </div>
+
+    </div>
+
+    <div id="condition">
+    </div>
+
+    <div id="answerArea">
+
+        <input
+            id="answer"
+            type="text"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            readonly>
+
+    </div>
+
+    <!-- フリック入力エリア -->
+
+    <div id="flick-grid">
+
+        <button class="flick-btn" data-char="ア">ア</button>
+        <button class="flick-btn" data-char="カ">カ</button>
+        <button class="flick-btn" data-char="サ">サ</button>
+
+        <button class="flick-btn" data-char="タ">タ</button>
+        <button class="flick-btn" data-char="ナ">ナ</button>
+        <button class="flick-btn" data-char="ハ">ハ</button>
+
+        <button class="flick-btn" data-char="マ">マ</button>
+        <button class="flick-btn" data-char="ヤ">ヤ</button>
+        <button class="flick-btn" data-char="ラ">ラ</button>
+
+        <button id="modifyBtn">
+            濁/小
+        </button>
+
+        <button class="flick-btn" data-char="ワ">
+            ワ
+        </button>
+
+        <button id="deleteBtn">
+            消
+        </button>
+
+    </div>
+
+    <div class="buttons">
+
+        <button id="checkBtn">
+            入力
+        </button>
+
+        <button id="nextBtn">
+            次の問題
+        </button>
+
+    </div>
+
+    <div id="result">
+    </div>
+
 </div>
-
-<div class="buttons">
-    <button id="checkBtn">判定</button>
-    <button id="nextBtn">次へ</button>
-</div>
-
-<div id="result"></div>
 
 <script src="client.js"></script>
 

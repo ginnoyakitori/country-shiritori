@@ -1,59 +1,391 @@
-body {
-    font-family: sans-serif;
-    text-align: center;
-    margin: 20px;
+*{
+    box-sizing:border-box;
 }
 
-h1 {
-    margin-bottom: 30px;
+body{
+
+    margin:0;
+
+    font-family:
+        "Hiragino Sans",
+        "Yu Gothic",
+        sans-serif;
+
+    text-align:center;
+
+    background:#f5f7fb;
+
+    color:#222;
 }
 
-#cards {
-    margin: 20px;
+/* =====================
+   開始画面
+===================== */
+
+#startScreen{
+
+    min-height:100vh;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    background:
+    linear-gradient(
+        135deg,
+        #e8f4ff,
+        #f8fbff
+    );
 }
 
-.card {
-    width: 120px;
-    height: 160px;
-    border: 3px solid #222;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 72px;
-    margin: 10px;
-    border-radius: 10px;
-    background-color: #fff;
+.start-card{
+
+    width:90%;
+
+    max-width:450px;
+
+    background:white;
+
+    padding:30px;
+
+    border-radius:24px;
+
+    box-shadow:
+    0 8px 24px
+    rgba(0,0,0,.15);
 }
 
-#condition {
-    font-size: 24px;
-    margin: 20px;
-    font-weight: bold;
+.title{
+
+    margin-top:0;
+
+    margin-bottom:20px;
+
+    font-size:2rem;
+
+    color:#204080;
 }
 
-.input-area {
-    margin: 20px;
+.description{
+
+    line-height:1.7;
+
+    margin-bottom:25px;
 }
 
-input {
-    width: 320px;
-    font-size: 24px;
-    padding: 8px;
+.method-label{
+
+    display:block;
+
+    margin:15px 0;
+
+    cursor:pointer;
 }
 
-.buttons {
-    margin: 20px;
+.method-label input{
+
+    display:none;
 }
 
-button {
-    font-size: 20px;
-    padding: 10px 20px;
-    margin: 5px;
-    cursor: pointer;
+.method-label span{
+
+    display:block;
+
+    padding:18px;
+
+    border-radius:15px;
+
+    font-size:1.3rem;
+
+    background:#f1f4ff;
+
+    border:2px solid #ccd6ff;
+
+    transition:.2s;
 }
 
-#result {
-    font-size: 26px;
-    margin-top: 20px;
-    font-weight: bold;
+.method-label input:checked + span{
+
+    background:#4f75ff;
+
+    color:white;
+
+    border-color:#2c55f0;
+
+    transform:scale(1.03);
+}
+
+#startBtn{
+
+    width:100%;
+
+    height:70px;
+
+    margin-top:25px;
+
+    border:none;
+
+    border-radius:15px;
+
+    background:#ff5e5e;
+
+    color:white;
+
+    font-size:1.4rem;
+
+    font-weight:bold;
+
+    cursor:pointer;
+}
+
+#startBtn:active{
+
+    transform:scale(.98);
+}
+
+/* =====================
+   ゲーム画面
+===================== */
+
+#gameScreen{
+
+    padding:15px;
+}
+
+#cards{
+
+    margin-top:15px;
+}
+
+.card{
+
+    width:120px;
+
+    height:160px;
+
+    background:white;
+
+    border:4px solid #333;
+
+    border-radius:15px;
+
+    display:inline-flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:72px;
+
+    margin:10px;
+
+    box-shadow:
+    0 4px 10px
+    rgba(0,0,0,.15);
+}
+
+#condition{
+
+    margin:20px;
+
+    font-size:1.3rem;
+
+    font-weight:bold;
+
+    min-height:50px;
+}
+
+#answerArea{
+
+    margin-bottom:15px;
+}
+
+#answer{
+
+    width:90%;
+
+    max-width:500px;
+
+    height:60px;
+
+    padding:10px;
+
+    font-size:1.8rem;
+
+    text-align:center;
+
+    border-radius:12px;
+
+    border:2px solid #ccc;
+
+    background:white;
+}
+
+/* =====================
+   フリックキーボード
+===================== */
+
+#flick-grid{
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(3,80px);
+
+    gap:10px;
+
+    justify-content:center;
+
+    margin:20px auto;
+}
+
+.flick-btn{
+
+    width:80px;
+
+    height:80px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:#eef2ff;
+
+    font-size:2rem;
+
+    font-weight:bold;
+
+    cursor:pointer;
+
+    box-shadow:
+    0 2px 5px
+    rgba(0,0,0,.2);
+}
+
+.flick-btn:active{
+
+    background:#dce3ff;
+}
+
+#modifyBtn,
+#deleteBtn{
+
+    width:80px;
+
+    height:80px;
+
+    border:none;
+
+    border-radius:12px;
+
+    font-size:1.1rem;
+
+    font-weight:bold;
+
+    background:#f0f0f0;
+
+    cursor:pointer;
+}
+
+#modifyBtn:active,
+#deleteBtn:active{
+
+    background:#dddddd;
+}
+
+/* =====================
+   ボタン
+===================== */
+
+.buttons{
+
+    margin-top:15px;
+}
+
+.buttons button{
+
+    margin:5px;
+
+    padding:12px 20px;
+
+    font-size:1.1rem;
+
+    border:none;
+
+    border-radius:10px;
+
+    cursor:pointer;
+}
+
+#checkBtn{
+
+    background:#5a92ff;
+
+    color:white;
+}
+
+#nextBtn{
+
+    background:#5bc568;
+
+    color:white;
+}
+
+#checkBtn:active,
+#nextBtn:active{
+
+    transform:scale(.98);
+}
+
+/* =====================
+   結果表示
+===================== */
+
+#result{
+
+    margin-top:20px;
+
+    min-height:40px;
+
+    font-size:1.4rem;
+
+    font-weight:bold;
+}
+
+/* =====================
+   スマホ最適化
+===================== */
+
+@media(max-width:600px){
+
+    .card{
+
+        width:100px;
+
+        height:140px;
+
+        font-size:60px;
+    }
+
+    #answer{
+
+        font-size:1.5rem;
+    }
+
+    #flick-grid{
+
+        grid-template-columns:
+            repeat(3,70px);
+    }
+
+    .flick-btn,
+    #modifyBtn,
+    #deleteBtn{
+
+        width:70px;
+
+        height:70px;
+    }
 }

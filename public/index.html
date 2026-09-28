@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0">
 
-    <title>
-        国名しりとりカード
-    </title>
+    <title>国名しりとりカード</title>
 
     <link
         rel="stylesheet"
@@ -17,151 +17,431 @@
 
 <body>
 
-<!-- 開始画面 -->
+    <!-- =====================
+         ゲーム開始画面
+    ====================== -->
 
-<div id="startScreen">
+    <div id="startScreen">
 
-    <div class="start-card">
+        <div class="start-card">
 
-        <h1 class="title">
-            国名しりとりカード
-        </h1>
+            <div class="title-icon">
+                🌏
+            </div>
 
-        <p class="description">
-            左の文字から始めて、国名・首都名だけで
-            しりとりを続け、
-            右の文字で終われば正解です。
-        </p>
+            <h1 class="title">
+                国名しりとりカード
+            </h1>
 
-        <h2>
-            入力方法を選択
-        </h2>
+            <p class="description">
+                左カードの文字から始めて、
+                国名・首都名だけでしりとりをします。
+                右カードの文字で終われば正解です。
+            </p>
 
-        <label class="method-label">
+            <h2 class="method-title">
+                入力方法を選択
+            </h2>
 
-            <input
-                type="radio"
-                name="inputMethod"
-                value="flick"
-                checked>
+            <!-- フリック入力 -->
 
-            <span>
-                📱 フリック入力
-            </span>
+            <label class="method-label">
 
-        </label>
+                <input
+                    type="radio"
+                    name="inputMethod"
+                    value="flick"
+                    checked>
 
-        <label class="method-label">
+                <span class="method-content">
 
-            <input
-                type="radio"
-                name="inputMethod"
-                value="romaji">
+                    <span
+                        class="method-icon"
+                        aria-hidden="true">
+                        📱
+                    </span>
 
-            <span>
-                ⌨️ ローマ字入力
-            </span>
+                    <span class="method-text">
 
-        </label>
+                        <strong>
+                            フリック入力
+                        </strong>
 
-        <button id="startBtn">
-            ゲーム開始
-        </button>
+                        <small>
+                            画面のキーボードを使用
+                        </small>
 
-    </div>
+                    </span>
 
-</div>
+                </span>
 
-<!-- ゲーム画面 -->
+            </label>
 
-<div
-    id="gameScreen"
-    style="display:none;">
+            <!-- ローマ字入力 -->
 
-    <h1>
-        国名しりとりカード
-    </h1>
+            <label class="method-label">
 
-    <div id="cards">
+                <input
+                    type="radio"
+                    name="inputMethod"
+                    value="romaji">
 
-        <div
-            class="card"
-            id="leftCard">
-            ?
+                <span class="method-content">
+
+                    <span
+                        class="method-icon"
+                        aria-hidden="true">
+                        ⌨️
+                    </span>
+
+                    <span class="method-text">
+
+                        <strong>
+                            ローマ字入力
+                        </strong>
+
+                        <small>
+                            PCのキーボードを使用
+                        </small>
+
+                    </span>
+
+                </span>
+
+            </label>
+
+            <button
+                type="button"
+                id="startBtn">
+                ゲーム開始
+            </button>
+
+            <div
+                id="loadError"
+                role="alert"
+                aria-live="assertive">
+            </div>
+
         </div>
 
+    </div>
+
+    <!-- =====================
+         ゲーム画面
+    ====================== -->
+
+    <main
+        id="gameScreen"
+        hidden>
+
+        <!-- ゲーム上部 -->
+
+        <header class="game-header">
+
+            <h1>
+                国名しりとりカード
+            </h1>
+
+            <div class="game-status">
+
+                <!-- ストップウォッチ -->
+
+                <div
+                    id="stopwatch"
+                    aria-label="経過時間"
+                    role="timer">
+                    00:00.00
+                </div>
+
+                <!-- 残り問題数 -->
+
+                <div
+                    id="remainingCount"
+                    aria-live="polite">
+                </div>
+
+            </div>
+
+        </header>
+
+        <!-- =====================
+             左右のカード
+        ====================== -->
+
+        <section
+            id="cards"
+            aria-label="出題カード">
+
+            <div class="card-area">
+
+                <div class="card-label">
+                    はじめ
+                </div>
+
+                <div
+                    class="card"
+                    id="leftCard"
+                    aria-label="開始文字">
+                    ?
+                </div>
+
+            </div>
+
+            <div
+                class="arrow"
+                aria-hidden="true">
+                →
+            </div>
+
+            <div class="card-area">
+
+                <div class="card-label">
+                    おわり
+                </div>
+
+                <div
+                    class="card"
+                    id="rightCard"
+                    aria-label="終了文字">
+                    ?
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- 現在の条件 -->
+
         <div
-            class="card"
-            id="rightCard">
-            ?
+            id="condition"
+            aria-live="polite">
         </div>
 
-    </div>
+        <!-- =====================
+             回答欄
+        ====================== -->
 
-    <div id="condition">
-    </div>
+        <div id="answerArea">
 
-    <div id="answerArea">
+            <label
+                for="answer"
+                class="answer-label">
+                回答
+            </label>
 
-        <input
-            id="answer"
-            type="text"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            readonly>
+            <input
+                id="answer"
+                type="text"
+                placeholder="国名または首都名"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                inputmode="none"
+                readonly>
 
-    </div>
+        </div>
 
-    <!-- フリック入力エリア -->
+        <!-- =====================
+             ローマ字入力の説明
+        ====================== -->
 
-    <div id="flick-grid">
+        <div
+            id="keyboardHelp"
+            aria-label="キーボード操作">
 
-        <button class="flick-btn" data-char="ア">ア</button>
-        <button class="flick-btn" data-char="カ">カ</button>
-        <button class="flick-btn" data-char="サ">サ</button>
+            <div class="keyboard-help-item">
 
-        <button class="flick-btn" data-char="タ">タ</button>
-        <button class="flick-btn" data-char="ナ">ナ</button>
-        <button class="flick-btn" data-char="ハ">ハ</button>
+                <kbd>Enter</kbd>
 
-        <button class="flick-btn" data-char="マ">マ</button>
-        <button class="flick-btn" data-char="ヤ">ヤ</button>
-        <button class="flick-btn" data-char="ラ">ラ</button>
+                <span>
+                    決定
+                </span>
 
-        <button id="modifyBtn">
-            濁/小
-        </button>
+            </div>
 
-        <button class="flick-btn" data-char="ワ">
-            ワ
-        </button>
+            <div class="keyboard-help-item">
 
-        <button id="deleteBtn">
-            消
-        </button>
+                <kbd>Space</kbd>
 
-    </div>
+                <span>
+                    ない
+                </span>
 
-    <div class="buttons">
+            </div>
 
-        <button id="checkBtn">
-            入力
-        </button>
+            <div class="keyboard-help-item">
 
-        <button id="nextBtn">
-            次の問題
-        </button>
+                <kbd>Backspace</kbd>
 
-    </div>
+                <span>
+                    1文字削除
+                </span>
 
-    <div id="result">
-    </div>
+            </div>
 
-</div>
+            <div class="keyboard-help-item">
 
-<script src="client.js"></script>
+                <kbd>Esc</kbd>
+
+                <span>
+                    全消去
+                </span>
+
+            </div>
+
+        </div>
+
+        <!-- =====================
+             フリックキーボード
+        ====================== -->
+
+        <div
+            id="flick-grid"
+            aria-label="フリック入力キーボード">
+
+            <!-- 1行目 -->
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="ア"
+                aria-label="あ行">
+                ア
+            </button>
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="カ"
+                aria-label="か行">
+                カ
+            </button>
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="サ"
+                aria-label="さ行">
+                サ
+            </button>
+
+            <!-- 2行目 -->
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="タ"
+                aria-label="た行">
+                タ
+            </button>
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="ナ"
+                aria-label="な行">
+                ナ
+            </button>
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="ハ"
+                aria-label="は行">
+                ハ
+            </button>
+
+            <!-- 3行目 -->
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="マ"
+                aria-label="ま行">
+                マ
+            </button>
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="ヤ"
+                aria-label="や行">
+                ヤ
+            </button>
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="ラ"
+                aria-label="ら行">
+                ラ
+            </button>
+
+            <!-- 4行目 -->
+
+            <button
+                type="button"
+                id="modifyBtn"
+                class="utility-btn"
+                aria-label="濁点、半濁点、小文字を切り替える">
+                濁・小
+            </button>
+
+            <button
+                type="button"
+                class="flick-btn"
+                data-char="ワ"
+                aria-label="わ行">
+                ワ
+            </button>
+
+            <button
+                type="button"
+                id="deleteBtn"
+                class="utility-btn"
+                aria-label="最後の文字を削除">
+                消
+            </button>
+
+        </div>
+
+        <!-- =====================
+             フリック入力用ボタン
+        ====================== -->
+
+        <div
+            id="controlButtons"
+            class="buttons">
+
+            <button
+                type="button"
+                id="checkBtn">
+                決定
+            </button>
+
+            <button
+                type="button"
+                id="noneBtn">
+                ない
+            </button>
+
+        </div>
+
+        <!-- =====================
+             判定結果
+        ====================== -->
+
+        <div
+            id="result"
+            role="status"
+            aria-live="assertive">
+        </div>
+
+    </main>
+
+    <script src="client.js"></script>
 
 </body>
+
 </html>

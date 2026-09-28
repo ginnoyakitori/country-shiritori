@@ -1,29 +1,33 @@
-/* =========================
-   定数
-========================= */
+"use strict";
+
+/* ==================================================
+   カード構成
+
+   「ヲ」以外の文字を1枚ずつ使用し、
+   「同」カードを1枚追加する
+================================================== */
 
 const cards = [
-
-    "あ","い","う","え","お",
-    "か","き","く","け","こ",
-    "さ","し","す","せ","そ",
-    "た","ち","つ","て","と",
-    "な","に","ぬ","ね","の",
-    "は","ひ","ふ","へ","ほ",
-    "ま","み","む","め","も",
-    "や","ゆ","よ",
-    "ら","り","る","れ","ろ",
-    "わ","ん",
-
+    "あ", "い", "う", "え", "お",
+    "か", "き", "く", "け", "こ",
+    "さ", "し", "す", "せ", "そ",
+    "た", "ち", "つ", "て", "と",
+    "な", "に", "ぬ", "ね", "の",
+    "は", "ひ", "ふ", "へ", "ほ",
+    "ま", "み", "む", "め", "も",
+    "や", "ゆ", "よ",
+    "ら", "り", "る", "れ", "ろ",
+    "わ", "ん",
     "同"
 ];
 
 
-/* =========================
-   グローバル変数
-========================= */
+/* ==================================================
+   ゲーム状態
+================================================== */
 
 let dictionary = [];
+let dictionarySet = new Set();
 
 let deck = [];
 let leftPile = [];
@@ -33,312 +37,409 @@ let currentStart = "";
 let goalChar = "";
 
 let solved = false;
+let gameFinished = false;
+
+let transitionTimer = null;
 
 let inputMethod = "flick";
 
+let flickInputEnabled = false;
+let physicalInputEnabled = false;
 
-/* =========================
-   DOM
-========================= */
+let romajiBuffer = "";
+
+
+/* ==================================================
+   ストップウォッチ状態
+================================================== */
+
+let stopwatchStartTime = 0;
+let stopwatchElapsedTime = 0;
+let stopwatchAnimationId = null;
+let stopwatchRunning = false;
+
+
+/* ==================================================
+   DOM要素
+================================================== */
+
+const startScreenEl =
+    document.getElementById("startScreen");
+
+const gameScreenEl =
+    document.getElementById("gameScreen");
+
+const startBtnEl =
+    document.getElementById("startBtn");
+
+const loadErrorEl =
+    document.getElementById("loadError");
 
 const answerEl =
-    document.getElementById(
-        "answer"
-    );
+    document.getElementById("answer");
 
 const resultEl =
-    document.getElementById(
-        "result"
-    );
+    document.getElementById("result");
 
 const conditionEl =
-    document.getElementById(
-        "condition"
-    );
+    document.getElementById("condition");
 
 const leftCardEl =
-    document.getElementById(
-        "leftCard"
-    );
+    document.getElementById("leftCard");
 
 const rightCardEl =
-    document.getElementById(
-        "rightCard"
-    );
+    document.getElementById("rightCard");
+
+const remainingCountEl =
+    document.getElementById("remainingCount");
+
+const stopwatchEl =
+    document.getElementById("stopwatch");
+
+const flickGridEl =
+    document.getElementById("flick-grid");
+
+const keyboardHelpEl =
+    document.getElementById("keyboardHelp");
+
+const controlButtonsEl =
+    document.getElementById("controlButtons");
+
+const checkBtnEl =
+    document.getElementById("checkBtn");
+
+const noneBtnEl =
+    document.getElementById("noneBtn");
+
+const modifyBtnEl =
+    document.getElementById("modifyBtn");
+
+const deleteBtnEl =
+    document.getElementById("deleteBtn");
 
 
-/* =========================
-   CSV読込
-========================= */
+/* ==================================================
+   CSV辞書の読み込み
+================================================== */
 
-async function loadDictionary(){
-
+async function loadDictionary() {
     const response =
-        await fetch(
-            "/api/dictionary"
-        );
+        await fetch("/api/dictionary");
 
-    dictionary =
+    if (!response.ok) {
+        throw new Error(
+            `辞書の取得に失敗しました: ${response.status}`
+        );
+    }
+
+    const data =
         await response.json();
 
+    if (!Array.isArray(data)) {
+        throw new Error(
+            "辞書データが配列ではありません"
+        );
+    }
+
+    dictionary = data
+        .map(word => String(word).trim())
+        .filter(Boolean);
+
+    dictionary = [
+        ...new Set(dictionary)
+    ];
+
+    dictionarySet = new Set(
+        dictionary.map(word =>
+            normalizeWord(word)
+        )
+    );
+
+    if (dictionary.length === 0) {
+        throw new Error(
+            "辞書が空です"
+        );
+    }
+
     console.log(
-        "dictionary loaded:",
-        dictionary.length
+        `辞書を読み込みました: ${dictionary.length}語`
     );
 }
 
 
-/* =========================
+/* ==================================================
    シャッフル
-========================= */
+================================================== */
 
-function shuffle(array){
-
-    for(
-        let i=array.length-1;
-        i>0;
+function shuffle(array) {
+    for (
+        let i = array.length - 1;
+        i > 0;
         i--
-    ){
-
-        const j=
-        Math.floor(
-            Math.random()*(i+1)
-        );
+    ) {
+        const randomIndex =
+            Math.floor(
+                Math.random() * (i + 1)
+            );
 
         [
             array[i],
-            array[j]
-        ]
-        =
-        [
-            array[j],
+            array[randomIndex]
+        ] = [
+            array[randomIndex],
             array[i]
         ];
     }
+
+    return array;
 }
 
 
-/* =========================
-   正規化
-========================= */
+/* ==================================================
+   ひらがな・カタカナの正規化
+================================================== */
 
-function normalize(text){
-
-    return text
-
-    .trim()
-
-    .replace(
+function katakanaToHiragana(text) {
+    return String(text).replace(
         /[ァ-ヶ]/g,
-
-        c=>
-        String.fromCharCode(
-            c.charCodeAt(0)-0x60
-        )
+        character =>
+            String.fromCharCode(
+                character.charCodeAt(0) - 0x60
+            )
     );
 }
 
 
-/* =========================
-   濁点・半濁点・小文字
-========================= */
-
-function normalizeShiritoriChar(ch){
-
-    const map={
-
-        "ぁ":"あ",
-        "ぃ":"い",
-        "ぅ":"う",
-        "ぇ":"え",
-        "ぉ":"お",
-
-        "ゃ":"や",
-        "ゅ":"ゆ",
-        "ょ":"よ",
-
-        "っ":"つ",
-        "ゎ":"わ",
-
-        "が":"か",
-        "ぎ":"き",
-        "ぐ":"く",
-        "げ":"け",
-        "ご":"こ",
-
-        "ざ":"さ",
-        "じ":"し",
-        "ず":"す",
-        "ぜ":"せ",
-        "ぞ":"そ",
-
-        "だ":"た",
-        "ぢ":"ち",
-        "づ":"つ",
-        "で":"て",
-        "ど":"と",
-
-        "ば":"は",
-        "び":"ひ",
-        "ぶ":"ふ",
-        "べ":"へ",
-        "ぼ":"ほ",
-
-        "ぱ":"は",
-        "ぴ":"ひ",
-        "ぷ":"ふ",
-        "ぺ":"へ",
-        "ぽ":"ほ"
-    };
-
-    return map[ch] || ch;
-}
-
-
-/* =========================
-   先頭文字
-========================= */
-
-function firstChar(word){
-
-    const chars =
-        [...normalize(word)];
-
-    return normalizeShiritoriChar(
-        chars[0]
+function normalizeWord(text) {
+    return katakanaToHiragana(
+        String(text)
+            .trim()
+            .normalize("NFC")
     );
 }
 
 
-/* =========================
-   末尾文字
-========================= */
+/* ==================================================
+   しりとり用の文字正規化
 
-function lastChar(word){
+   濁点・半濁点の付け外しを許可する
+   小文字は大文字として扱う
+================================================== */
 
-    let chars =
-        [...normalize(word)];
+const shiritoriCharacterMap = {
+    "ぁ": "あ",
+    "ぃ": "い",
+    "ぅ": "う",
+    "ぇ": "え",
+    "ぉ": "お",
 
-    while(
+    "ゃ": "や",
+    "ゅ": "ゆ",
+    "ょ": "よ",
 
-        chars.length>1 &&
+    "っ": "つ",
+    "ゎ": "わ",
 
-        chars[
-            chars.length-1
-        ]==="ー"
+    "が": "か",
+    "ぎ": "き",
+    "ぐ": "く",
+    "げ": "け",
+    "ご": "こ",
 
-    ){
-        chars.pop();
+    "ざ": "さ",
+    "じ": "し",
+    "ず": "す",
+    "ぜ": "せ",
+    "ぞ": "そ",
+
+    "だ": "た",
+    "ぢ": "ち",
+    "づ": "つ",
+    "で": "て",
+    "ど": "と",
+
+    "ば": "は",
+    "び": "ひ",
+    "ぶ": "ふ",
+    "べ": "へ",
+    "ぼ": "ほ",
+
+    "ぱ": "は",
+    "ぴ": "ひ",
+    "ぷ": "ふ",
+    "ぺ": "へ",
+    "ぽ": "ほ",
+
+    "ゔ": "う"
+};
+
+
+function normalizeShiritoriChar(character) {
+    const hiragana =
+        katakanaToHiragana(
+            String(character || "")
+                .normalize("NFC")
+        );
+
+    return (
+        shiritoriCharacterMap[hiragana]
+        || hiragana
+    );
+}
+
+
+/* ==================================================
+   単語の先頭文字
+================================================== */
+
+function firstChar(word) {
+    const characters = [
+        ...normalizeWord(word)
+    ];
+
+    if (characters.length === 0) {
+        return "";
     }
 
-    let ch =
-        chars[
-            chars.length-1
-        ];
+    return normalizeShiritoriChar(
+        characters[0]
+    );
+}
+
+
+/* ==================================================
+   単語の最後の文字
+
+   最後が小文字の場合は大文字にする
+   最後が「ー」「－」の場合は直前の文字を使う
+
+   例:
+   ノルウェー → エ
+================================================== */
+
+function lastChar(word) {
+    const characters = [
+        ...normalizeWord(word)
+    ];
+
+    while (
+        characters.length > 1
+        &&
+        (
+            characters[
+                characters.length - 1
+            ] === "ー"
+            ||
+            characters[
+                characters.length - 1
+            ] === "－"
+        )
+    ) {
+        characters.pop();
+    }
+
+    if (characters.length === 0) {
+        return "";
+    }
 
     return normalizeShiritoriChar(
-        ch
+        characters[
+            characters.length - 1
+        ]
     );
 }
 
 
-/* =========================
-   辞書存在判定
-========================= */
+/* ==================================================
+   辞書登録確認
+================================================== */
 
-function wordExists(word){
-
-    const target =
-        normalize(word);
-
-    return dictionary.some(
-
-        w=>
-
-        normalize(w)
-        ===
-        target
+function wordExists(word) {
+    return dictionarySet.has(
+        normalizeWord(word)
     );
 }
 
 
-/* =========================
-   解答可能か探索
-   「ない」判定用
-========================= */
+/* ==================================================
+   「ない」の判定
 
-function hasSolution(
-    start,
-    goal
-){
+   現在の開始文字から辞書内の単語を使って、
+   最終的に目標文字で終われるかを探索する。
 
-    start =
-        normalizeShiritoriChar(
-            start
-        );
+   文字を頂点とした幅優先探索。
+================================================== */
 
-    goal =
-        normalizeShiritoriChar(
-            goal
-        );
+function hasSolution(start, goal) {
+    const normalizedStart =
+        normalizeShiritoriChar(start);
 
-    const visited =
-        new Set();
+    const normalizedGoal =
+        normalizeShiritoriChar(goal);
 
-    const queue =
-        [start];
+    const queue = [];
+    const visited = new Set();
 
-    while(
-        queue.length > 0
-    ){
+    /*
+     最初の文字から始まる単語を調べる
+    */
 
-        const current =
-            queue.shift();
-
-        if(
-            current===goal
-        ){
-            return true;
-        }
-
-        if(
-            visited.has(
-                current
-            )
-        ){
+    for (const word of dictionary) {
+        if (
+            firstChar(word)
+            !== normalizedStart
+        ) {
             continue;
         }
 
-        visited.add(
-            current
-        );
+        const ending =
+            lastChar(word);
 
-        for(
-            const word of
-            dictionary
-        ){
+        if (
+            ending === normalizedGoal
+        ) {
+            return true;
+        }
 
-            if(
+        if (!visited.has(ending)) {
+            visited.add(ending);
+            queue.push(ending);
+        }
+    }
+
+    /*
+     到達した末尾文字から、
+     さらにしりとりを続ける
+    */
+
+    let queueIndex = 0;
+
+    while (queueIndex < queue.length) {
+        const current =
+            queue[queueIndex];
+
+        queueIndex++;
+
+        for (const word of dictionary) {
+            if (
                 firstChar(word)
-                ===
-                current
-            ){
+                !== current
+            ) {
+                continue;
+            }
 
-                const next =
-                    lastChar(
-                        word
-                    );
+            const ending =
+                lastChar(word);
 
-                if(
-                    !visited.has(
-                        next
-                    )
-                ){
+            if (
+                ending === normalizedGoal
+            ) {
+                return true;
+            }
 
-                    queue.push(
-                        next
-                    );
-                }
+            if (!visited.has(ending)) {
+                visited.add(ending);
+                queue.push(ending);
             }
         }
     }
@@ -347,59 +448,201 @@ function hasSolution(
 }
 
 
-/* =========================
-   ゲーム開始
-========================= */
+/* ==================================================
+   ストップウォッチ
+================================================== */
 
-function startGame(){
+function formatStopwatchTime(milliseconds) {
+    const totalCentiseconds =
+        Math.floor(milliseconds / 10);
 
-    deck = [...cards];
+    const centiseconds =
+        totalCentiseconds % 100;
 
-    shuffle(deck);
-
-    const mid =
-        Math.ceil(
-            deck.length/2
+    const totalSeconds =
+        Math.floor(
+            totalCentiseconds / 100
         );
 
-    leftPile =
-        deck.slice(
-            0,
-            mid
+    const seconds =
+        totalSeconds % 60;
+
+    const minutes =
+        Math.floor(
+            totalSeconds / 60
         );
 
-    rightPile =
-        deck.slice(
-            mid
-        );
-
-    nextTurn();
+    return (
+        String(minutes).padStart(2, "0")
+        + ":"
+        + String(seconds).padStart(2, "0")
+        + "."
+        + String(centiseconds).padStart(2, "0")
+    );
 }
 
 
-/* =========================
+function updateStopwatch() {
+    if (!stopwatchRunning) {
+        return;
+    }
+
+    stopwatchElapsedTime =
+        performance.now()
+        - stopwatchStartTime;
+
+    stopwatchEl.textContent =
+        formatStopwatchTime(
+            stopwatchElapsedTime
+        );
+
+    stopwatchAnimationId =
+        requestAnimationFrame(
+            updateStopwatch
+        );
+}
+
+
+function startStopwatch() {
+    if (
+        stopwatchAnimationId !== null
+    ) {
+        cancelAnimationFrame(
+            stopwatchAnimationId
+        );
+    }
+
+    stopwatchElapsedTime = 0;
+
+    stopwatchStartTime =
+        performance.now();
+
+    stopwatchRunning = true;
+
+    stopwatchEl.textContent =
+        "00:00.00";
+
+    stopwatchEl.classList.remove(
+        "finished"
+    );
+
+    stopwatchAnimationId =
+        requestAnimationFrame(
+            updateStopwatch
+        );
+}
+
+
+function stopStopwatch() {
+    if (!stopwatchRunning) {
+        return;
+    }
+
+    stopwatchElapsedTime =
+        performance.now()
+        - stopwatchStartTime;
+
+    stopwatchRunning = false;
+
+    if (
+        stopwatchAnimationId !== null
+    ) {
+        cancelAnimationFrame(
+            stopwatchAnimationId
+        );
+
+        stopwatchAnimationId = null;
+    }
+
+    stopwatchEl.textContent =
+        formatStopwatchTime(
+            stopwatchElapsedTime
+        );
+
+    stopwatchEl.classList.add(
+        "finished"
+    );
+}
+
+
+function resetStopwatch() {
+    stopwatchRunning = false;
+    stopwatchElapsedTime = 0;
+
+    if (
+        stopwatchAnimationId !== null
+    ) {
+        cancelAnimationFrame(
+            stopwatchAnimationId
+        );
+
+        stopwatchAnimationId = null;
+    }
+
+    stopwatchEl.textContent =
+        "00:00.00";
+
+    stopwatchEl.classList.remove(
+        "finished"
+    );
+}
+
+
+/* ==================================================
+   ゲーム開始
+================================================== */
+
+function startGame() {
+    deck = shuffle([
+        ...cards
+    ]);
+
+    const middle =
+        Math.ceil(
+            deck.length / 2
+        );
+
+    leftPile =
+        deck.slice(0, middle);
+
+    rightPile =
+        deck.slice(middle);
+
+    solved = false;
+    gameFinished = false;
+
+    resetStopwatch();
+
+    nextTurn();
+
+    startStopwatch();
+}
+
+
+/* ==================================================
    次の問題
-========================= */
+================================================== */
 
-function nextTurn(){
+function nextTurn() {
+    clearTimeout(
+        transitionTimer
+    );
 
-    answerEl.value="";
+    answerEl.value = "";
+    romajiBuffer = "";
 
-    resultEl.textContent="";
+    resultEl.textContent = "";
+    resultEl.style.color = "";
 
-    if(
-        leftPile.length===0
+    checkBtnEl.disabled = false;
+    noneBtnEl.disabled = false;
+
+    if (
+        leftPile.length === 0
         ||
-        rightPile.length===0
-    ){
-
-        leftCardEl.textContent="終";
-
-        rightCardEl.textContent="了";
-
-        conditionEl.textContent=
-            "ゲーム終了";
-
+        rightPile.length === 0
+    ) {
+        finishGame();
         return;
     }
 
@@ -409,642 +652,270 @@ function nextTurn(){
     let right =
         rightPile.pop();
 
-    if(
-        left==="同"
-    ){
-        left=right;
+    /*
+     「同」は反対側の文字と同じ文字にする
+    */
+
+    if (left === "同") {
+        left = right;
     }
 
-    if(
-        right==="同"
-    ){
-        right=left;
+    if (right === "同") {
+        right = left;
     }
 
-    leftCardEl.textContent=
+    leftCardEl.textContent =
         left;
 
-    rightCardEl.textContent=
+    rightCardEl.textContent =
         right;
 
     currentStart =
-        normalizeShiritoriChar(
-            left
-        );
+        normalizeShiritoriChar(left);
 
     goalChar =
-        normalizeShiritoriChar(
-            right
-        );
+        normalizeShiritoriChar(right);
 
-    solved=false;
+    solved = false;
 
-    conditionEl.textContent=
+    conditionEl.textContent =
         `「${left}」から始めて「${right}」で終わるしりとり`;
+
+    updateRemainingCount();
+
+    if (inputMethod === "romaji") {
+        answerEl.focus();
+    }
 }
 
 
-/* =========================
-   判定
-========================= */
+/* ==================================================
+   残り問題数
+================================================== */
 
-function judge(){
+function updateRemainingCount() {
+    const remaining =
+        Math.min(
+            leftPile.length,
+            rightPile.length
+        );
 
-    if(
+    if (gameFinished) {
+        remainingCountEl.textContent = "";
+        return;
+    }
+
+    remainingCountEl.textContent =
+        `残り ${remaining} 組`;
+}
+
+
+/* ==================================================
+   ゲーム終了
+================================================== */
+
+function finishGame() {
+    gameFinished = true;
+    solved = true;
+
+    stopStopwatch();
+
+    leftCardEl.textContent = "終";
+    rightCardEl.textContent = "了";
+
+    conditionEl.textContent =
+        "すべてのカードが終了しました";
+
+    resultEl.textContent =
+        `クリア！ 記録 ${formatStopwatchTime(
+            stopwatchElapsedTime
+        )}`;
+
+    resultEl.style.color =
+        "green";
+
+    answerEl.value = "";
+    romajiBuffer = "";
+
+    checkBtnEl.disabled = true;
+    noneBtnEl.disabled = true;
+
+    remainingCountEl.textContent = "";
+}
+
+
+/* ==================================================
+   正解後の自動進行
+================================================== */
+
+function moveToNextTurnAfterSuccess(message) {
+    solved = true;
+
+    resultEl.textContent =
+        message;
+
+    resultEl.style.color =
+        "green";
+
+    checkBtnEl.disabled = true;
+    noneBtnEl.disabled = true;
+
+    transitionTimer = setTimeout(
+        () => {
+            nextTurn();
+        },
+        700
+    );
+}
+
+
+/* ==================================================
+   入力された単語の判定
+================================================== */
+
+function judge() {
+    if (
         solved
-    ){
+        ||
+        gameFinished
+    ) {
         return;
     }
 
     const answer =
         answerEl.value.trim();
 
-    if(
-        !answer
-    ){
-        return;
-    }
+    if (!answer) {
+        resultEl.textContent =
+            "国名または首都名を入力してください";
 
-    if(
-    normalize(answer) === normalize("ナイ")
-    ||
-    answer === "無し"
-){
-
-        const solvable =
-
-            hasSolution(
-                currentStart,
-                goalChar
-            );
-
-        if(
-            solvable
-        ){
-
-            resultEl.textContent=
-                "× 『ない』ではありません";
-
-            resultEl.style.color=
-                "red";
-        }
-        else{
-
-            resultEl.textContent=
-                "○ 正解（ない）";
-
-            resultEl.style.color=
-                "green";
-
-            solved=true;
-        }
+        resultEl.style.color =
+            "red";
 
         return;
     }
 
-    if(
-        !wordExists(answer)
-    ){
-
-        resultEl.textContent=
+    if (!wordExists(answer)) {
+        resultEl.textContent =
             "× 登録されていない国名・首都名";
 
-        resultEl.style.color=
+        resultEl.style.color =
             "red";
 
         return;
     }
 
-    const first =
-        firstChar(
-            answer
-        );
+    const beginning =
+        firstChar(answer);
 
-    if(
-        first !== currentStart
-    ){
-
-        resultEl.textContent=
+    if (
+        beginning !== currentStart
+    ) {
+        resultEl.textContent =
             `× 「${currentStart}」で始めてください`;
 
-        resultEl.style.color=
+        resultEl.style.color =
             "red";
 
         return;
     }
 
-    const last =
-        lastChar(
-            answer
+    const ending =
+        lastChar(answer);
+
+    /*
+     右カードの文字で終わった場合は正解
+    */
+
+    if (ending === goalChar) {
+        moveToNextTurnAfterSuccess(
+            `○ 正解！「${goalChar}」に到達`
         );
 
-    if(
-        last===goalChar
-    ){
-
-        resultEl.textContent=
-            `○ 正解！「${goalChar}」に到達`;
-
-        resultEl.style.color=
-            "green";
-
-        solved=true;
-
         return;
     }
 
-    currentStart =
-        last;
+    /*
+     右カードに到達していなければ
+     しりとりを継続する
+    */
 
-    conditionEl.textContent=
-        `次は「${currentStart}」から始める（目標:${goalChar}）`;
+    currentStart = ending;
 
-    resultEl.textContent=
-        `○ 続行（次は ${currentStart}）`;
+    conditionEl.textContent =
+        `次は「${currentStart}」から始める（目標：「${goalChar}」）`;
 
-    resultEl.style.color=
-        "blue";
+    resultEl.textContent =
+        `○ 続行。次は「${currentStart}」`;
 
-    answerEl.value="";
+    resultEl.style.color =
+        "#2563eb";
+
+    answerEl.value = "";
+    romajiBuffer = "";
+
+    if (inputMethod === "romaji") {
+        answerEl.focus();
+    }
 }
 
-/* =========================
-   フリック入力データ
 
-   配列の順番:
-   0 = 上
-   1 = 右
-   2 = 下
-   3 = 左
-   4 = 中央
-========================= */
+/* ==================================================
+   「ない」の正誤判定
+================================================== */
 
-const flickData = {
-
-    "ア":[
-        "ウ",
-        "エ",
-        "オ",
-        "イ",
-        "ア"
-    ],
-
-    "カ":[
-        "ク",
-        "ケ",
-        "コ",
-        "キ",
-        "カ"
-    ],
-
-    "サ":[
-        "ス",
-        "セ",
-        "ソ",
-        "シ",
-        "サ"
-    ],
-
-    "タ":[
-        "ツ",
-        "テ",
-        "ト",
-        "チ",
-        "タ"
-    ],
-
-    "ナ":[
-        "ヌ",
-        "ネ",
-        "ノ",
-        "ニ",
-        "ナ"
-    ],
-
-    "ハ":[
-        "フ",
-        "ヘ",
-        "ホ",
-        "ヒ",
-        "ハ"
-    ],
-
-    "マ":[
-        "ム",
-        "メ",
-        "モ",
-        "ミ",
-        "マ"
-    ],
-
-    "ヤ":[
-        "ユ",
-        "",
-        "ヨ",
-        "",
-        "ヤ"
-    ],
-
-    "ラ":[
-        "ル",
-        "レ",
-        "ロ",
-        "リ",
-        "ラ"
-    ],
-
-    "ワ":[
-        "ン",
-        "ー",
-        "",
-        "ヲ",
-        "ワ"
-    ]
-};
-
-
-/* =========================
-   濁点・半濁点・小文字変換
-========================= */
-
-const transformChainMap = {
-
-    "ア":["ア","ァ"],
-    "イ":["イ","ィ"],
-    "ウ":["ウ","ゥ","ヴ"],
-    "エ":["エ","ェ"],
-    "オ":["オ","ォ"],
-
-    "カ":["カ","ガ"],
-    "キ":["キ","ギ"],
-    "ク":["ク","グ"],
-    "ケ":["ケ","ゲ"],
-    "コ":["コ","ゴ"],
-
-    "サ":["サ","ザ"],
-    "シ":["シ","ジ"],
-    "ス":["ス","ズ"],
-    "セ":["セ","ゼ"],
-    "ソ":["ソ","ゾ"],
-
-    "タ":["タ","ダ"],
-    "チ":["チ","ヂ"],
-    "ツ":["ツ","ッ","ヅ"],
-    "テ":["テ","デ"],
-    "ト":["ト","ド"],
-
-    "ハ":["ハ","バ","パ"],
-    "ヒ":["ヒ","ビ","ピ"],
-    "フ":["フ","ブ","プ"],
-    "ヘ":["ヘ","ベ","ペ"],
-    "ホ":["ホ","ボ","ポ"],
-
-    "ヤ":["ヤ","ャ"],
-    "ユ":["ユ","ュ"],
-    "ヨ":["ヨ","ョ"],
-
-    "ワ":["ワ","ヮ"]
-};
-
-
-/* =========================
-   フリック入力用変数
-========================= */
-
-let flickStartX = 0;
-let flickStartY = 0;
-
-let flickInputEnabled = false;
-
-
-/* =========================
-   回答欄に文字を追加
-========================= */
-
-function appendAnswerCharacter(character){
-
-    if(
-        !character
-    ){
+function judgeNone() {
+    if (
+        solved
+        ||
+        gameFinished
+    ) {
         return;
     }
 
-    answerEl.value += character;
+    const solvable =
+        hasSolution(
+            currentStart,
+            goalChar
+        );
+
+    if (solvable) {
+        resultEl.textContent =
+            "× 「ない」ではありません";
+
+        resultEl.style.color =
+            "red";
+
+        return;
+    }
+
+    moveToNextTurnAfterSuccess(
+        "○ 正解（ない）"
+    );
+}
+
+
+/* ==================================================
+   回答欄の操作
+================================================== */
+
+function appendAnswerCharacter(character) {
+    if (!character) {
+        return;
+    }
+
+    answerEl.value +=
+        character;
 
     answerEl.scrollLeft =
         answerEl.scrollWidth;
 }
 
 
-/* =========================
-   マウス・タッチ移動量から
-   フリック方向を判定
-========================= */
-
-function getFlickDirection(
-    differenceX,
-    differenceY
-){
-
-    const threshold = 25;
-
-    if(
-        Math.abs(differenceX) < threshold
-        &&
-        Math.abs(differenceY) < threshold
-    ){
-
-        return 4;
-    }
-
-    if(
-        Math.abs(differenceX)
-        >
-        Math.abs(differenceY)
-    ){
-
-        if(
-            differenceX > 0
-        ){
-
-            return 1;
-        }
-
-        return 3;
-    }
-
-    if(
-        differenceY > 0
-    ){
-
-        return 2;
-    }
-
-    return 0;
-}
-
-
-/* =========================
-   フリック開始
-========================= */
-
-function flickPointerDownHandler(event){
-
-    if(
-        !flickInputEnabled
-    ){
-        return;
-    }
-
-    event.preventDefault();
-
-    flickStartX =
-        event.clientX;
-
-    flickStartY =
-        event.clientY;
-
-    if(
-        event.currentTarget.setPointerCapture
-    ){
-
-        try{
-
-            event.currentTarget.setPointerCapture(
-                event.pointerId
-            );
-
-        }catch(error){
-
-            console.log(
-                "Pointer capture skipped"
-            );
-        }
-    }
-}
-
-
-/* =========================
-   フリック終了
-========================= */
-
-function flickPointerUpHandler(event){
-
-    if(
-        !flickInputEnabled
-    ){
-        return;
-    }
-
-    event.preventDefault();
-
-    const differenceX =
-        event.clientX - flickStartX;
-
-    const differenceY =
-        event.clientY - flickStartY;
-
-    const direction =
-        getFlickDirection(
-            differenceX,
-            differenceY
-        );
-
-    const base =
-        event.currentTarget.dataset.char;
-
-    const kanaList =
-        flickData[base];
-
-    if(
-        !kanaList
-    ){
-        return;
-    }
-
-    const kana =
-        kanaList[direction];
-
-    appendAnswerCharacter(
-        kana
-    );
-}
-
-
-/* =========================
-   フリック中のスクロール防止
-========================= */
-
-function flickPointerMoveHandler(event){
-
-    if(
-        flickInputEnabled
-    ){
-
-        event.preventDefault();
-    }
-}
-
-
-/* =========================
-   フリックボタン初期化
-========================= */
-
-function initializeFlickKeyboard(){
-
-    const flickButtons =
-        document.querySelectorAll(
-            ".flick-btn"
-        );
-
-    flickButtons.forEach(
-        button => {
-
-            button.style.touchAction =
-                "none";
-
-            button.addEventListener(
-                "pointerdown",
-                flickPointerDownHandler
-            );
-
-            button.addEventListener(
-                "pointerup",
-                flickPointerUpHandler
-            );
-
-            button.addEventListener(
-                "pointermove",
-                flickPointerMoveHandler
-            );
-
-            button.addEventListener(
-                "contextmenu",
-                event => {
-
-                    event.preventDefault();
-                }
-            );
-        }
-    );
-}
-
-
-/* =========================
-   フリック入力有効化
-========================= */
-
-function enableFlickInput(){
-
-    flickInputEnabled = true;
-
-    document
-        .getElementById(
-            "flick-grid"
-        )
-        .style.display =
-            "grid";
-}
-
-
-/* =========================
-   フリック入力無効化
-========================= */
-
-function disableFlickInput(){
-
-    flickInputEnabled = false;
-
-    document
-        .getElementById(
-            "flick-grid"
-        )
-        .style.display =
-            "none";
-}
-
-
-/* =========================
-   濁点・半濁点・小文字ボタン
-========================= */
-
-function modifyLastCharacter(){
-
-    const value =
-        answerEl.value;
-
-    if(
-        !value
-    ){
-        return;
-    }
-
-    const characters =
-        [...value];
-
-    const last =
-        characters.pop();
-
-    let targetChain = null;
-
-    for(
-        const chain of
-        Object.values(
-            transformChainMap
-        )
-    ){
-
-        if(
-            chain.includes(
-                last
-            )
-        ){
-
-            targetChain =
-                chain;
-
-            break;
-        }
-    }
-
-    if(
-        !targetChain
-    ){
-        return;
-    }
-
-    const currentIndex =
-        targetChain.indexOf(
-            last
-        );
-
-    const nextIndex =
-        (
-            currentIndex + 1
-        )
-        %
-        targetChain.length;
-
-    characters.push(
-        targetChain[nextIndex]
-    );
-
-    answerEl.value =
-        characters.join("");
-
-    answerEl.scrollLeft =
-        answerEl.scrollWidth;
-}
-
-
-/* =========================
-   1文字削除
-========================= */
-
-function deleteLastCharacter(){
-
-    const characters =
-        [...answerEl.value];
+function deleteLastCharacter() {
+    const characters = [
+        ...answerEl.value
+    ];
 
     characters.pop();
 
@@ -1056,259 +927,564 @@ function deleteLastCharacter(){
 }
 
 
-/* =========================
-   ローマ字変換表
-========================= */
+/* ==================================================
+   フリック入力データ
 
-const romajiToKanaMap = {
+   配列の順番:
+   0 = 上
+   1 = 右
+   2 = 下
+   3 = 左
+   4 = 中央
+================================================== */
 
-    "kya":"キャ",
-    "kyu":"キュ",
-    "kyo":"キョ",
-
-    "sha":"シャ",
-    "shu":"シュ",
-    "she":"シェ",
-    "sho":"ショ",
-
-    "sya":"シャ",
-    "syu":"シュ",
-    "sye":"シェ",
-    "syo":"ショ",
-
-    "cha":"チャ",
-    "chu":"チュ",
-    "che":"チェ",
-    "cho":"チョ",
-
-    "tya":"チャ",
-    "tyu":"チュ",
-    "tye":"チェ",
-    "tyo":"チョ",
-
-    "nya":"ニャ",
-    "nyu":"ニュ",
-    "nyo":"ニョ",
-
-    "hya":"ヒャ",
-    "hyu":"ヒュ",
-    "hyo":"ヒョ",
-
-    "mya":"ミャ",
-    "myu":"ミュ",
-    "myo":"ミョ",
-
-    "rya":"リャ",
-    "ryu":"リュ",
-    "ryo":"リョ",
-
-    "gya":"ギャ",
-    "gyu":"ギュ",
-    "gyo":"ギョ",
-
-    "ja":"ジャ",
-    "ju":"ジュ",
-    "je":"ジェ",
-    "jo":"ジョ",
-
-    "jya":"ジャ",
-    "jyu":"ジュ",
-    "jye":"ジェ",
-    "jyo":"ジョ",
-
-    "zya":"ジャ",
-    "zyu":"ジュ",
-    "zye":"ジェ",
-    "zyo":"ジョ",
-
-    "bya":"ビャ",
-    "byu":"ビュ",
-    "byo":"ビョ",
-
-    "pya":"ピャ",
-    "pyu":"ピュ",
-    "pyo":"ピョ",
-
-    "dya":"ヂャ",
-    "dyu":"ヂュ",
-    "dyo":"ヂョ",
-
-    "fa":"ファ",
-    "fi":"フィ",
-    "fe":"フェ",
-    "fo":"フォ",
-
-    "fya":"ファ",
-    "fyu":"フュ",
-    "fyo":"フォ",
-
-    "va":"ヴァ",
-    "vi":"ヴィ",
-    "vu":"ヴ",
-    "ve":"ヴェ",
-    "vo":"ヴォ",
-
-    "tsa":"ツァ",
-    "tsi":"ツィ",
-    "tse":"ツェ",
-    "tso":"ツォ",
-
-    "thi":"ティ",
-    "thu":"テュ",
-
-    "dhi":"ディ",
-    "dhu":"デュ",
-
-    "twu":"トゥ",
-    "dwu":"ドゥ",
-
-    "kwa":"クァ",
-    "kwi":"クィ",
-    "kwe":"クェ",
-    "kwo":"クォ",
-
-    "gwa":"グァ",
-    "gwi":"グィ",
-    "gwe":"グェ",
-    "gwo":"グォ",
-
-    "shi":"シ",
-    "chi":"チ",
-    "tsu":"ツ",
-
-    "si":"シ",
-    "ti":"チ",
-    "tu":"ツ",
-
-    "fu":"フ",
-    "hu":"フ",
-
-    "wi":"ウィ",
-    "we":"ウェ",
-    "wo":"ヲ",
-
-    "la":"ァ",
-    "li":"ィ",
-    "lu":"ゥ",
-    "le":"ェ",
-    "lo":"ォ",
-
-    "xa":"ァ",
-    "xi":"ィ",
-    "xu":"ゥ",
-    "xe":"ェ",
-    "xo":"ォ",
-
-    "lya":"ャ",
-    "lyu":"ュ",
-    "lyo":"ョ",
-
-    "xya":"ャ",
-    "xyu":"ュ",
-    "xyo":"ョ",
-
-    "ltu":"ッ",
-    "xtu":"ッ",
-    "ltsu":"ッ",
-    "xtsu":"ッ",
-
-    "a":"ア",
-    "i":"イ",
-    "u":"ウ",
-    "e":"エ",
-    "o":"オ",
-
-    "ka":"カ",
-    "ki":"キ",
-    "ku":"ク",
-    "ke":"ケ",
-    "ko":"コ",
-
-    "ca":"カ",
-    "cu":"ク",
-    "co":"コ",
-
-    "sa":"サ",
-    "su":"ス",
-    "se":"セ",
-    "so":"ソ",
-
-    "ta":"タ",
-    "te":"テ",
-    "to":"ト",
-
-    "na":"ナ",
-    "ni":"ニ",
-    "nu":"ヌ",
-    "ne":"ネ",
-    "no":"ノ",
-
-    "ha":"ハ",
-    "hi":"ヒ",
-    "he":"ヘ",
-    "ho":"ホ",
-
-    "ma":"マ",
-    "mi":"ミ",
-    "mu":"ム",
-    "me":"メ",
-    "mo":"モ",
-
-    "ya":"ヤ",
-    "yu":"ユ",
-    "yo":"ヨ",
-
-    "ra":"ラ",
-    "ri":"リ",
-    "ru":"ル",
-    "re":"レ",
-    "ro":"ロ",
-
-    "wa":"ワ",
-
-    "ga":"ガ",
-    "gi":"ギ",
-    "gu":"グ",
-    "ge":"ゲ",
-    "go":"ゴ",
-
-    "za":"ザ",
-    "zi":"ジ",
-    "ji":"ジ",
-    "zu":"ズ",
-    "ze":"ゼ",
-    "zo":"ゾ",
-
-    "da":"ダ",
-    "di":"ヂ",
-    "du":"ヅ",
-    "de":"デ",
-    "do":"ド",
-
-    "ba":"バ",
-    "bi":"ビ",
-    "bu":"ブ",
-    "be":"ベ",
-    "bo":"ボ",
-
-    "pa":"パ",
-    "pi":"ピ",
-    "pu":"プ",
-    "pe":"ペ",
-    "po":"ポ",
-
-    "-":"ー"
+const flickData = {
+    "ア": ["ウ", "エ", "オ", "イ", "ア"],
+    "カ": ["ク", "ケ", "コ", "キ", "カ"],
+    "サ": ["ス", "セ", "ソ", "シ", "サ"],
+    "タ": ["ツ", "テ", "ト", "チ", "タ"],
+    "ナ": ["ヌ", "ネ", "ノ", "ニ", "ナ"],
+    "ハ": ["フ", "ヘ", "ホ", "ヒ", "ハ"],
+    "マ": ["ム", "メ", "モ", "ミ", "マ"],
+    "ヤ": ["ユ", "", "ヨ", "", "ヤ"],
+    "ラ": ["ル", "レ", "ロ", "リ", "ラ"],
+    "ワ": ["ン", "ー", "", "ヲ", "ワ"]
 };
 
 
-/* =========================
-   ローマ字入力用変数
-========================= */
+/* ==================================================
+   濁点・半濁点・小文字変換
+================================================== */
 
-let romajiBuffer = "";
+const transformChainMap = {
+    "ア": ["ア", "ァ"],
+    "イ": ["イ", "ィ"],
+    "ウ": ["ウ", "ゥ", "ヴ"],
+    "エ": ["エ", "ェ"],
+    "オ": ["オ", "ォ"],
 
-let physicalInputEnabled =
-    false;
+    "カ": ["カ", "ガ"],
+    "キ": ["キ", "ギ"],
+    "ク": ["ク", "グ"],
+    "ケ": ["ケ", "ゲ"],
+    "コ": ["コ", "ゴ"],
+
+    "サ": ["サ", "ザ"],
+    "シ": ["シ", "ジ"],
+    "ス": ["ス", "ズ"],
+    "セ": ["セ", "ゼ"],
+    "ソ": ["ソ", "ゾ"],
+
+    "タ": ["タ", "ダ"],
+    "チ": ["チ", "ヂ"],
+    "ツ": ["ツ", "ッ", "ヅ"],
+    "テ": ["テ", "デ"],
+    "ト": ["ト", "ド"],
+
+    "ハ": ["ハ", "バ", "パ"],
+    "ヒ": ["ヒ", "ビ", "ピ"],
+    "フ": ["フ", "ブ", "プ"],
+    "ヘ": ["ヘ", "ベ", "ペ"],
+    "ホ": ["ホ", "ボ", "ポ"],
+
+    "ヤ": ["ヤ", "ャ"],
+    "ユ": ["ユ", "ュ"],
+    "ヨ": ["ヨ", "ョ"],
+
+    "ワ": ["ワ", "ヮ"]
+};
+
+
+/* ==================================================
+   フリック入力用変数
+================================================== */
+
+let flickStartX = 0;
+let flickStartY = 0;
+
+
+/* ==================================================
+   フリック方向判定
+================================================== */
+
+function getFlickDirection(
+    differenceX,
+    differenceY
+) {
+    const threshold = 25;
+
+    /*
+     動きが小さければ中央タップ
+    */
+
+    if (
+        Math.abs(differenceX) < threshold
+        &&
+        Math.abs(differenceY) < threshold
+    ) {
+        return 4;
+    }
+
+    /*
+     横方向
+    */
+
+    if (
+        Math.abs(differenceX)
+        >
+        Math.abs(differenceY)
+    ) {
+        return (
+            differenceX > 0
+                ? 1
+                : 3
+        );
+    }
+
+    /*
+     縦方向
+    */
+
+    return (
+        differenceY > 0
+            ? 2
+            : 0
+    );
+}
+
+
+/* ==================================================
+   フリック開始
+================================================== */
+
+function flickPointerDownHandler(event) {
+    if (!flickInputEnabled) {
+        return;
+    }
+
+    event.preventDefault();
+
+    flickStartX =
+        event.clientX;
+
+    flickStartY =
+        event.clientY;
+
+    try {
+        event.currentTarget
+            .setPointerCapture(
+                event.pointerId
+            );
+    } catch (error) {
+        /*
+         Pointer Capture非対応の場合は
+         何もしない
+        */
+    }
+}
+
+
+/* ==================================================
+   フリック終了
+================================================== */
+
+function flickPointerUpHandler(event) {
+    if (!flickInputEnabled) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const differenceX =
+        event.clientX
+        - flickStartX;
+
+    const differenceY =
+        event.clientY
+        - flickStartY;
+
+    const direction =
+        getFlickDirection(
+            differenceX,
+            differenceY
+        );
+
+    const base =
+        event.currentTarget.dataset.char;
+
+    const character =
+        flickData[base]?.[direction];
+
+    appendAnswerCharacter(
+        character
+    );
+}
+
+
+/* ==================================================
+   フリックキーボード初期化
+================================================== */
+
+function initializeFlickKeyboard() {
+    const buttons =
+        document.querySelectorAll(
+            ".flick-btn"
+        );
+
+    buttons.forEach(button => {
+        button.addEventListener(
+            "pointerdown",
+            flickPointerDownHandler
+        );
+
+        button.addEventListener(
+            "pointerup",
+            flickPointerUpHandler
+        );
+
+        button.addEventListener(
+            "pointermove",
+            event => {
+                if (flickInputEnabled) {
+                    event.preventDefault();
+                }
+            }
+        );
+
+        button.addEventListener(
+            "contextmenu",
+            event => {
+                event.preventDefault();
+            }
+        );
+    });
+}
+
+
+function enableFlickInput() {
+    flickInputEnabled = true;
+
+    flickGridEl.style.display =
+        "grid";
+}
+
+
+function disableFlickInput() {
+    flickInputEnabled = false;
+
+    flickGridEl.style.display =
+        "none";
+}
+
+
+/* ==================================================
+   濁点・半濁点・小文字切替
+================================================== */
+
+function modifyLastCharacter() {
+    const characters = [
+        ...answerEl.value
+    ];
+
+    if (characters.length === 0) {
+        return;
+    }
+
+    const last =
+        characters.pop();
+
+    let selectedChain = null;
+
+    for (
+        const chain of
+        Object.values(
+            transformChainMap
+        )
+    ) {
+        if (chain.includes(last)) {
+            selectedChain = chain;
+            break;
+        }
+    }
+
+    if (!selectedChain) {
+        return;
+    }
+
+    const currentIndex =
+        selectedChain.indexOf(last);
+
+    const nextIndex =
+        (
+            currentIndex + 1
+        ) % selectedChain.length;
+
+    characters.push(
+        selectedChain[nextIndex]
+    );
+
+    answerEl.value =
+        characters.join("");
+
+    answerEl.scrollLeft =
+        answerEl.scrollWidth;
+}
+
+
+/* ==================================================
+   ローマ字変換表
+================================================== */
+
+const romajiToKanaMap = {
+    "kya": "キャ",
+    "kyu": "キュ",
+    "kyo": "キョ",
+
+    "sha": "シャ",
+    "shu": "シュ",
+    "she": "シェ",
+    "sho": "ショ",
+
+    "sya": "シャ",
+    "syu": "シュ",
+    "sye": "シェ",
+    "syo": "ショ",
+
+    "cha": "チャ",
+    "chu": "チュ",
+    "che": "チェ",
+    "cho": "チョ",
+
+    "tya": "チャ",
+    "tyu": "チュ",
+    "tye": "チェ",
+    "tyo": "チョ",
+
+    "nya": "ニャ",
+    "nyu": "ニュ",
+    "nyo": "ニョ",
+
+    "hya": "ヒャ",
+    "hyu": "ヒュ",
+    "hyo": "ヒョ",
+
+    "mya": "ミャ",
+    "myu": "ミュ",
+    "myo": "ミョ",
+
+    "rya": "リャ",
+    "ryu": "リュ",
+    "ryo": "リョ",
+
+    "gya": "ギャ",
+    "gyu": "ギュ",
+    "gyo": "ギョ",
+
+    "ja": "ジャ",
+    "ju": "ジュ",
+    "je": "ジェ",
+    "jo": "ジョ",
+
+    "jya": "ジャ",
+    "jyu": "ジュ",
+    "jye": "ジェ",
+    "jyo": "ジョ",
+
+    "zya": "ジャ",
+    "zyu": "ジュ",
+    "zye": "ジェ",
+    "zyo": "ジョ",
+
+    "bya": "ビャ",
+    "byu": "ビュ",
+    "byo": "ビョ",
+
+    "pya": "ピャ",
+    "pyu": "ピュ",
+    "pyo": "ピョ",
+
+    "dya": "ヂャ",
+    "dyu": "ヂュ",
+    "dyo": "ヂョ",
+
+    "fa": "ファ",
+    "fi": "フィ",
+    "fe": "フェ",
+    "fo": "フォ",
+
+    "fya": "ファ",
+    "fyu": "フュ",
+    "fyo": "フォ",
+
+    "va": "ヴァ",
+    "vi": "ヴィ",
+    "vu": "ヴ",
+    "ve": "ヴェ",
+    "vo": "ヴォ",
+
+    "tsa": "ツァ",
+    "tsi": "ツィ",
+    "tse": "ツェ",
+    "tso": "ツォ",
+
+    "thi": "ティ",
+    "thu": "テュ",
+
+    "dhi": "ディ",
+    "dhu": "デュ",
+
+    "twu": "トゥ",
+    "dwu": "ドゥ",
+
+    "kwa": "クァ",
+    "kwi": "クィ",
+    "kwe": "クェ",
+    "kwo": "クォ",
+
+    "gwa": "グァ",
+    "gwi": "グィ",
+    "gwe": "グェ",
+    "gwo": "グォ",
+
+    "shi": "シ",
+    "chi": "チ",
+    "tsu": "ツ",
+
+    "si": "シ",
+    "ti": "チ",
+    "tu": "ツ",
+
+    "fu": "フ",
+    "hu": "フ",
+
+    "wi": "ウィ",
+    "we": "ウェ",
+    "wo": "ヲ",
+
+    "la": "ァ",
+    "li": "ィ",
+    "lu": "ゥ",
+    "le": "ェ",
+    "lo": "ォ",
+
+    "xa": "ァ",
+    "xi": "ィ",
+    "xu": "ゥ",
+    "xe": "ェ",
+    "xo": "ォ",
+
+    "lya": "ャ",
+    "lyu": "ュ",
+    "lyo": "ョ",
+
+    "xya": "ャ",
+    "xyu": "ュ",
+    "xyo": "ョ",
+
+    "ltu": "ッ",
+    "xtu": "ッ",
+    "ltsu": "ッ",
+    "xtsu": "ッ",
+
+    "a": "ア",
+    "i": "イ",
+    "u": "ウ",
+    "e": "エ",
+    "o": "オ",
+
+    "ka": "カ",
+    "ki": "キ",
+    "ku": "ク",
+    "ke": "ケ",
+    "ko": "コ",
+
+    "ca": "カ",
+    "cu": "ク",
+    "co": "コ",
+
+    "sa": "サ",
+    "su": "ス",
+    "se": "セ",
+    "so": "ソ",
+
+    "ta": "タ",
+    "te": "テ",
+    "to": "ト",
+
+    "na": "ナ",
+    "ni": "ニ",
+    "nu": "ヌ",
+    "ne": "ネ",
+    "no": "ノ",
+
+    "ha": "ハ",
+    "hi": "ヒ",
+    "he": "ヘ",
+    "ho": "ホ",
+
+    "ma": "マ",
+    "mi": "ミ",
+    "mu": "ム",
+    "me": "メ",
+    "mo": "モ",
+
+    "ya": "ヤ",
+    "yu": "ユ",
+    "yo": "ヨ",
+
+    "ra": "ラ",
+    "ri": "リ",
+    "ru": "ル",
+    "re": "レ",
+    "ro": "ロ",
+
+    "wa": "ワ",
+
+    "ga": "ガ",
+    "gi": "ギ",
+    "gu": "グ",
+    "ge": "ゲ",
+    "go": "ゴ",
+
+    "za": "ザ",
+    "zi": "ジ",
+    "ji": "ジ",
+    "zu": "ズ",
+    "ze": "ゼ",
+    "zo": "ゾ",
+
+    "da": "ダ",
+    "di": "ヂ",
+    "du": "ヅ",
+    "de": "デ",
+    "do": "ド",
+
+    "ba": "バ",
+    "bi": "ビ",
+    "bu": "ブ",
+    "be": "ベ",
+    "bo": "ボ",
+
+    "pa": "パ",
+    "pi": "ピ",
+    "pu": "プ",
+    "pe": "ペ",
+    "po": "ポ",
+
+    "-": "ー"
+};
+
+
+const romajiKeys =
+    Object.keys(
+        romajiToKanaMap
+    )
+    .sort(
+        (first, second) =>
+            second.length
+            - first.length
+    );
+
 
 const vowels =
     new Set([
@@ -1319,55 +1495,34 @@ const vowels =
         "o"
     ]);
 
-const sortedRomajiKeys =
-    Object.keys(
-        romajiToKanaMap
-    )
-    .sort(
-        (a,b) =>
-            b.length - a.length
-    );
 
+/* ==================================================
+   ローマ字の接頭辞確認
+================================================== */
 
-/* =========================
-   指定文字列から始まる
-   ローマ字パターンがあるか
-========================= */
-
-function hasRomajiPrefix(text){
-
-    return sortedRomajiKeys.some(
+function hasRomajiPrefix(text) {
+    return romajiKeys.some(
         key =>
             key.startsWith(text)
     );
 }
 
 
-/* =========================
-   ローマ字バッファ変換
-========================= */
+/* ==================================================
+   ローマ字バッファをカタカナへ変換
+================================================== */
 
 function processRomajiBuffer(
     forceComplete = false
-){
-
-    while(
-        romajiBuffer.length > 0
-    ){
-
+) {
+    while (romajiBuffer.length > 0) {
         /*
-         n単独は通常は次の文字待ち。
-         Enter時はンとして確定する。
+         n単独は通常は次の入力待ち。
+         Enter時はンとして確定。
         */
 
-        if(
-            romajiBuffer === "n"
-        ){
-
-            if(
-                forceComplete
-            ){
-
+        if (romajiBuffer === "n") {
+            if (forceComplete) {
                 appendAnswerCharacter(
                     "ン"
                 );
@@ -1378,17 +1533,15 @@ function processRomajiBuffer(
             break;
         }
 
-
         /*
-         n' はンとして確定
+         n' → ン
         */
 
-        if(
+        if (
             romajiBuffer.startsWith(
                 "n'"
             )
-        ){
-
+        ) {
             appendAnswerCharacter(
                 "ン"
             );
@@ -1399,19 +1552,16 @@ function processRomajiBuffer(
             continue;
         }
 
-
         /*
-         nnの場合、最初のnをンとして確定。
-         2文字目のnは次の「ナ行」に利用できる。
-         例: konnichiha
+         nnの場合は最初のnをンに確定。
+         2文字目のnはナ行入力に利用できる。
         */
 
-        if(
+        if (
             romajiBuffer.startsWith(
                 "nn"
             )
-        ){
-
+        ) {
             appendAnswerCharacter(
                 "ン"
             );
@@ -1422,30 +1572,25 @@ function processRomajiBuffer(
             continue;
         }
 
-
         /*
-         nの次が母音・y・n以外ならンとして確定
+         nの次が母音、y、n以外ならン
         */
 
-        if(
+        if (
             romajiBuffer[0] === "n"
             &&
             romajiBuffer.length >= 2
-        ){
-
-            const nextCharacter =
+        ) {
+            const next =
                 romajiBuffer[1];
 
-            if(
-                !vowels.has(
-                    nextCharacter
-                )
+            if (
+                !vowels.has(next)
                 &&
-                nextCharacter !== "y"
+                next !== "y"
                 &&
-                nextCharacter !== "n"
-            ){
-
+                next !== "n"
+            ) {
                 appendAnswerCharacter(
                     "ン"
                 );
@@ -1457,26 +1602,23 @@ function processRomajiBuffer(
             }
         }
 
-
         /*
          同じ子音が2つ続いたら促音
          例: kka → ッカ
         */
 
-        if(
+        if (
             romajiBuffer.length >= 2
             &&
             romajiBuffer[0]
-                ===
-            romajiBuffer[1]
+                === romajiBuffer[1]
             &&
             !vowels.has(
                 romajiBuffer[0]
             )
             &&
             romajiBuffer[0] !== "n"
-        ){
-
+        ) {
             appendAnswerCharacter(
                 "ッ"
             );
@@ -1487,63 +1629,48 @@ function processRomajiBuffer(
             continue;
         }
 
-
         /*
-         最長一致で変換
+         最長一致
         */
 
-        let matchedKey =
-            null;
+        let matchedKey = null;
 
-        for(
-            const key of
-            sortedRomajiKeys
-        ){
-
-            if(
+        for (const key of romajiKeys) {
+            if (
                 romajiBuffer.startsWith(
                     key
                 )
-            ){
-
-                matchedKey =
-                    key;
-
+            ) {
+                matchedKey = key;
                 break;
             }
         }
 
-        if(
-            matchedKey
-        ){
-
-            /*
-             より長い候補の可能性がある場合は待つ。
-             例: sを入力した直後
-            */
-
-            const exactIsAlsoPrefix =
-                sortedRomajiKeys.some(
+        if (matchedKey) {
+            const longerCandidateExists =
+                romajiKeys.some(
                     key =>
                         key.length
-                            >
-                        matchedKey.length
+                            > matchedKey.length
                         &&
                         key.startsWith(
                             romajiBuffer
                         )
                 );
 
-            if(
+            /*
+             より長い候補がある場合は
+             次の入力を待つ
+            */
+
+            if (
                 !forceComplete
                 &&
                 romajiBuffer.length
-                    ===
-                matchedKey.length
+                    === matchedKey.length
                 &&
-                exactIsAlsoPrefix
-            ){
-
+                longerCandidateExists
+            ) {
                 break;
             }
 
@@ -1561,33 +1688,29 @@ function processRomajiBuffer(
             continue;
         }
 
-
         /*
-         変換候補の接頭辞なら次のキーを待つ
+         まだ変換候補の途中なら待つ
         */
 
-        if(
+        if (
             !forceComplete
             &&
             hasRomajiPrefix(
                 romajiBuffer
             )
-        ){
-
+        ) {
             break;
         }
 
-
         /*
-         Enter時、残ったnはンにする
+         Enter時に残ったnをンにする
         */
 
-        if(
+        if (
             forceComplete
             &&
             romajiBuffer[0] === "n"
-        ){
-
+        ) {
             appendAnswerCharacter(
                 "ン"
             );
@@ -1597,7 +1720,6 @@ function processRomajiBuffer(
 
             continue;
         }
-
 
         /*
          変換できない文字は破棄
@@ -1609,28 +1731,31 @@ function processRomajiBuffer(
 }
 
 
-/* =========================
-   物理キーボード入力
-========================= */
+/* ==================================================
+   ローマ字キーボード入力
 
-function physicalInputKeydownHandler(
-    event
-){
+   Enter       決定
+   Space       ない
+   Backspace   削除
+   Escape      全消去
+================================================== */
 
-    if(
+function physicalInputKeydownHandler(event) {
+    if (
         !physicalInputEnabled
-    ){
+        ||
+        gameFinished
+        ||
+        solved
+    ) {
         return;
     }
 
     /*
-     Enterで判定
+     Enterキーで決定
     */
 
-    if(
-        event.key === "Enter"
-    ){
-
+    if (event.key === "Enter") {
         event.preventDefault();
 
         processRomajiBuffer(
@@ -1642,76 +1767,82 @@ function physicalInputKeydownHandler(
         return;
     }
 
-
     /*
-     Backspaceで削除
+     スペースキーで「ない」
     */
 
-    if(
-        event.key === "Backspace"
-    ){
-
+    if (
+        event.key === " "
+        ||
+        event.code === "Space"
+    ) {
         event.preventDefault();
 
-        if(
-            romajiBuffer.length > 0
-        ){
+        romajiBuffer = "";
+        answerEl.value = "";
 
+        judgeNone();
+
+        return;
+    }
+
+    /*
+     Backspaceキーで削除
+    */
+
+    if (
+        event.key === "Backspace"
+    ) {
+        event.preventDefault();
+
+        if (romajiBuffer.length > 0) {
             romajiBuffer =
                 romajiBuffer.slice(
                     0,
                     -1
                 );
-
-        }else{
-
+        } else {
             deleteLastCharacter();
         }
 
         return;
     }
 
-
     /*
-     Escapeで入力欄を空にする
+     Escapeキーで全消去
     */
 
-    if(
+    if (
         event.key === "Escape"
-    ){
-
+    ) {
         event.preventDefault();
 
         romajiBuffer = "";
-
         answerEl.value = "";
 
         return;
     }
 
-
     /*
-     Ctrlなどのショートカットは無視
+     ショートカットキーは無視
     */
 
-    if(
+    if (
         event.ctrlKey
         ||
         event.altKey
         ||
         event.metaKey
-    ){
-
+    ) {
         return;
     }
 
-
     /*
-     アルファベット、ハイフン、
-     アポストロフィだけ受け付ける
+     英字・ハイフン・アポストロフィを
+     ローマ字入力として受け付ける
     */
 
-    if(
+    if (
         /^[a-zA-Z]$/.test(
             event.key
         )
@@ -1719,8 +1850,7 @@ function physicalInputKeydownHandler(
         event.key === "-"
         ||
         event.key === "'"
-    ){
-
+    ) {
         event.preventDefault();
 
         romajiBuffer +=
@@ -1733,16 +1863,18 @@ function physicalInputKeydownHandler(
 }
 
 
-/* =========================
-   ローマ字入力有効化
-========================= */
-
-function enablePhysicalInput(){
-
-    physicalInputEnabled =
-        true;
-
+function enablePhysicalInput() {
+    physicalInputEnabled = true;
     romajiBuffer = "";
+
+    /*
+     重複登録を防止
+    */
+
+    document.removeEventListener(
+        "keydown",
+        physicalInputKeydownHandler
+    );
 
     document.addEventListener(
         "keydown",
@@ -1753,15 +1885,8 @@ function enablePhysicalInput(){
 }
 
 
-/* =========================
-   ローマ字入力無効化
-========================= */
-
-function disablePhysicalInput(){
-
-    physicalInputEnabled =
-        false;
-
+function disablePhysicalInput() {
+    physicalInputEnabled = false;
     romajiBuffer = "";
 
     document.removeEventListener(
@@ -1771,250 +1896,193 @@ function disablePhysicalInput(){
 }
 
 
-/* =========================
-   入力方法選択
-========================= */
+/* ==================================================
+   入力方法の選択
+================================================== */
 
 document
     .querySelectorAll(
         'input[name="inputMethod"]'
     )
-    .forEach(
-        radio => {
-
-            radio.addEventListener(
-                "change",
-                event => {
-
-                    inputMethod =
-                        event.target.value;
-                }
-            );
-        }
-    );
+    .forEach(radio => {
+        radio.addEventListener(
+            "change",
+            event => {
+                inputMethod =
+                    event.target.value;
+            }
+        );
+    });
 
 
-/* =========================
+/* ==================================================
    ゲーム開始ボタン
-========================= */
+================================================== */
 
-document
-    .getElementById(
-        "startBtn"
-    )
-    .addEventListener(
-        "click",
-        async () => {
+startBtnEl.addEventListener(
+    "click",
+    async () => {
+        startBtnEl.disabled = true;
 
-            const startButton =
-                document.getElementById(
-                    "startBtn"
-                );
+        startBtnEl.textContent =
+            "読み込み中…";
 
-            startButton.disabled =
-                true;
+        loadErrorEl.textContent = "";
 
-            startButton.textContent =
-                "読み込み中…";
+        try {
+            await loadDictionary();
 
-            try{
+            startScreenEl.style.display =
+                "none";
 
-                await loadDictionary();
+            gameScreenEl.hidden =
+                false;
 
-                if(
-                    !Array.isArray(
-                        dictionary
-                    )
-                    ||
-                    dictionary.length === 0
-                ){
+            /*
+             ブラウザ標準キーボードを表示しない
+            */
 
-                    throw new Error(
-                        "辞書が空です"
-                    );
-                }
+            answerEl.readOnly = true;
 
-                document
-                    .getElementById(
-                        "startScreen"
-                    )
-                    .style.display =
-                        "none";
+            answerEl.setAttribute(
+                "inputmode",
+                "none"
+            );
 
-                document
-                    .getElementById(
-                        "gameScreen"
-                    )
-                    .style.display =
-                        "block";
+            if (
+                inputMethod === "flick"
+            ) {
+                /*
+                 フリック入力を有効化
+                */
 
-                if(
-                    inputMethod ===
-                    "flick"
-                ){
+                disablePhysicalInput();
+                enableFlickInput();
 
-                    disablePhysicalInput();
+                controlButtonsEl.style.display =
+                    "flex";
 
-                    enableFlickInput();
+                keyboardHelpEl.style.display =
+                    "none";
 
-                    answerEl.readOnly =
-                        true;
+            } else {
+                /*
+                 ローマ字入力を有効化
+                */
 
-                    answerEl.setAttribute(
-                        "inputmode",
-                        "none"
-                    );
+                disableFlickInput();
+                enablePhysicalInput();
 
-                }else{
+                controlButtonsEl.style.display =
+                    "none";
 
-                    disableFlickInput();
-
-                    enablePhysicalInput();
-
-                    answerEl.readOnly =
-                        true;
-
-                    answerEl.setAttribute(
-                        "inputmode",
-                        "none"
-                    );
-                }
-
-                startGame();
-
-            }catch(error){
-
-                console.error(
-                    error
-                );
-
-                alert(
-                    "辞書の読み込みに失敗しました。server.js と countries.csv を確認してください。"
-                );
-
-                startButton.disabled =
-                    false;
-
-                startButton.textContent =
-                    "ゲーム開始";
-            }
-        }
-    );
-
-
-/* =========================
-   判定ボタン
-========================= */
-
-document
-    .getElementById(
-        "checkBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            if(
-                inputMethod ===
-                "romaji"
-            ){
-
-                processRomajiBuffer(
-                    true
-                );
+                keyboardHelpEl.style.display =
+                    "block";
             }
 
-            judge();
+            startGame();
+
+        } catch (error) {
+            console.error(error);
+
+            loadErrorEl.textContent =
+                "辞書を読み込めませんでした。countries.csv と server.js を確認してください。";
+
+            startBtnEl.disabled =
+                false;
+
+            startBtnEl.textContent =
+                "ゲーム開始";
         }
-    );
+    }
+);
 
 
-/* =========================
-   次の問題ボタン
-========================= */
+/* ==================================================
+   フリック入力の決定ボタン
+================================================== */
 
-document
-    .getElementById(
-        "nextBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            romajiBuffer = "";
-
-            nextTurn();
-
-            if(
-                inputMethod ===
-                "romaji"
-            ){
-
-                answerEl.focus();
-            }
+checkBtnEl.addEventListener(
+    "click",
+    () => {
+        if (
+            inputMethod !== "flick"
+        ) {
+            return;
         }
-    );
+
+        judge();
+    }
+);
 
 
-/* =========================
+/* ==================================================
+   フリック入力の「ない」ボタン
+================================================== */
+
+noneBtnEl.addEventListener(
+    "click",
+    () => {
+        if (
+            inputMethod !== "flick"
+        ) {
+            return;
+        }
+
+        answerEl.value = "";
+
+        judgeNone();
+    }
+);
+
+
+/* ==================================================
    濁点・小文字ボタン
-========================= */
+================================================== */
 
-document
-    .getElementById(
-        "modifyBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            if(
-                inputMethod !==
-                "flick"
-            ){
-                return;
-            }
-
-            modifyLastCharacter();
+modifyBtnEl.addEventListener(
+    "click",
+    () => {
+        if (
+            inputMethod !== "flick"
+        ) {
+            return;
         }
-    );
+
+        modifyLastCharacter();
+    }
+);
 
 
-/* =========================
+/* ==================================================
    削除ボタン
-========================= */
+================================================== */
 
-document
-    .getElementById(
-        "deleteBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            if(
-                inputMethod !==
-                "flick"
-            ){
-                return;
-            }
-
-            deleteLastCharacter();
+deleteBtnEl.addEventListener(
+    "click",
+    () => {
+        if (
+            inputMethod !== "flick"
+        ) {
+            return;
         }
-    );
+
+        deleteLastCharacter();
+    }
+);
 
 
-/* =========================
+/* ==================================================
    初期化
-========================= */
+================================================== */
 
 initializeFlickKeyboard();
 
 /*
- ゲーム開始前は、
- フリック入力もローマ字入力も無効。
+ ゲーム開始前は両方の入力を無効にする
 */
 
 disableFlickInput();
-
 disablePhysicalInput();
+
+resetStopwatch();

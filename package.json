@@ -1,7 +1,7 @@
 {
   "name": "country-shiritori-card",
   "version": "1.0.0",
-  "description": "国名しりとりカード",
+  "description": "国名と首都名を使ったカードしりとりゲーム",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -1,391 +1,595 @@
-*{
-    box-sizing:border-box;
+* {
+    box-sizing: border-box;
 }
 
-body{
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    overscroll-behavior: none;
+}
 
-    margin:0;
-
+body {
     font-family:
         "Hiragino Sans",
         "Yu Gothic",
+        "Meiryo",
         sans-serif;
 
-    text-align:center;
-
-    background:#f5f7fb;
-
-    color:#222;
+    text-align: center;
+    color: #1f2937;
+    background: #f3f6fb;
 }
 
 /* =====================
    開始画面
 ===================== */
 
-#startScreen{
+#startScreen {
+    min-height: 100vh;
 
-    min-height:100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
+    padding: 20px;
 
     background:
-    linear-gradient(
-        135deg,
-        #e8f4ff,
-        #f8fbff
-    );
+        linear-gradient(
+            145deg,
+            #dfefff,
+            #f7fbff 55%,
+            #e8f8f1
+        );
 }
 
-.start-card{
+.start-card {
+    width: 100%;
+    max-width: 460px;
 
-    width:90%;
+    padding: 30px;
 
-    max-width:450px;
-
-    background:white;
-
-    padding:30px;
-
-    border-radius:24px;
+    background: #ffffff;
+    border-radius: 26px;
 
     box-shadow:
-    0 8px 24px
-    rgba(0,0,0,.15);
+        0 16px 45px
+        rgba(30, 64, 175, 0.15);
 }
 
-.title{
-
-    margin-top:0;
-
-    margin-bottom:20px;
-
-    font-size:2rem;
-
-    color:#204080;
+.title-icon {
+    font-size: 3rem;
+    margin-bottom: 5px;
 }
 
-.description{
+.title {
+    margin: 0 0 18px;
 
-    line-height:1.7;
-
-    margin-bottom:25px;
+    color: #1e3a8a;
+    font-size: 2rem;
 }
 
-.method-label{
+.description {
+    margin: 0 0 26px;
 
-    display:block;
-
-    margin:15px 0;
-
-    cursor:pointer;
+    color: #4b5563;
+    line-height: 1.75;
 }
 
-.method-label input{
-
-    display:none;
+.method-title {
+    margin: 0 0 15px;
+    font-size: 1.25rem;
 }
 
-.method-label span{
-
-    display:block;
-
-    padding:18px;
-
-    border-radius:15px;
-
-    font-size:1.3rem;
-
-    background:#f1f4ff;
-
-    border:2px solid #ccd6ff;
-
-    transition:.2s;
+.method-label {
+    display: block;
+    margin: 13px 0;
+    cursor: pointer;
 }
 
-.method-label input:checked + span{
-
-    background:#4f75ff;
-
-    color:white;
-
-    border-color:#2c55f0;
-
-    transform:scale(1.03);
+.method-label input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
 }
 
-#startBtn{
+.method-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 
-    width:100%;
+    padding: 16px 18px;
 
-    height:70px;
+    text-align: left;
 
-    margin-top:25px;
+    background: #f7f9ff;
+    border: 2px solid #d6def5;
+    border-radius: 16px;
 
-    border:none;
-
-    border-radius:15px;
-
-    background:#ff5e5e;
-
-    color:white;
-
-    font-size:1.4rem;
-
-    font-weight:bold;
-
-    cursor:pointer;
+    transition:
+        transform 0.15s,
+        background-color 0.15s,
+        border-color 0.15s;
 }
 
-#startBtn:active{
+.method-label input:checked
++ .method-content {
+    color: #ffffff;
+    background: #4169e1;
+    border-color: #264ccb;
+    transform: scale(1.02);
+}
 
-    transform:scale(.98);
+.method-icon {
+    font-size: 2rem;
+}
+
+.method-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.method-text strong {
+    font-size: 1.2rem;
+}
+
+.method-text small {
+    opacity: 0.85;
+}
+
+#startBtn {
+    width: 100%;
+    min-height: 64px;
+
+    margin-top: 24px;
+    padding: 12px;
+
+    color: #ffffff;
+    background: #ef4444;
+
+    border: 0;
+    border-radius: 15px;
+
+    font-size: 1.4rem;
+    font-weight: bold;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 6px 14px
+        rgba(239, 68, 68, 0.3);
+}
+
+#startBtn:active {
+    transform: scale(0.98);
+}
+
+#startBtn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+#loadError {
+    min-height: 24px;
+    margin-top: 12px;
+
+    color: #c62828;
+    font-weight: bold;
 }
 
 /* =====================
    ゲーム画面
 ===================== */
 
-#gameScreen{
+#gameScreen {
+    width: 100%;
+    max-width: 720px;
 
-    padding:15px;
+    margin: 0 auto;
+    padding: 15px 15px 35px;
 }
 
-#cards{
-
-    margin-top:15px;
+#gameScreen[hidden] {
+    display: none;
 }
 
-.card{
+.game-header h1 {
+    margin: 5px 0;
+    color: #1e3a8a;
+}
 
-    width:120px;
+#remainingCount {
+    min-height: 24px;
+    color: #64748b;
+    font-weight: bold;
+}
 
-    height:160px;
+#cards {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
 
-    background:white;
+    margin: 15px 0 12px;
+}
 
-    border:4px solid #333;
+.card-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
-    border-radius:15px;
+.card-label {
+    margin-bottom: 5px;
 
-    display:inline-flex;
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
 
-    justify-content:center;
+.card {
+    width: 120px;
+    height: 155px;
 
-    align-items:center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 
-    font-size:72px;
+    background: #ffffff;
+    border: 4px solid #25324a;
+    border-radius: 16px;
 
-    margin:10px;
+    font-size: 4.3rem;
+    font-weight: bold;
 
     box-shadow:
-    0 4px 10px
-    rgba(0,0,0,.15);
+        0 6px 16px
+        rgba(15, 23, 42, 0.15);
 }
 
-#condition{
+.arrow {
+    padding-top: 20px;
 
-    margin:20px;
-
-    font-size:1.3rem;
-
-    font-weight:bold;
-
-    min-height:50px;
+    color: #64748b;
+    font-size: 2.2rem;
+    font-weight: bold;
 }
 
-#answerArea{
+#condition {
+    min-height: 58px;
 
-    margin-bottom:15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    margin: 12px auto;
+    padding: 10px;
+
+    font-size: 1.25rem;
+    font-weight: bold;
+    line-height: 1.5;
 }
 
-#answer{
+#answerArea {
+    width: 92%;
+    max-width: 520px;
 
-    width:90%;
+    margin: 0 auto 12px;
+}
 
-    max-width:500px;
+.answer-label {
+    display: block;
 
-    height:60px;
+    margin-bottom: 5px;
 
-    padding:10px;
+    text-align: left;
+    color: #475569;
+    font-weight: bold;
+}
 
-    font-size:1.8rem;
+#answer {
+    width: 100%;
+    height: 60px;
 
-    text-align:center;
+    padding: 8px 12px;
 
-    border-radius:12px;
+    color: #111827;
+    background: #ffffff;
 
-    border:2px solid #ccc;
+    border: 2px solid #b9c3d3;
+    border-radius: 12px;
 
-    background:white;
+    font-size: 1.75rem;
+    text-align: center;
+}
+
+#answer:focus {
+    outline: 3px solid
+        rgba(65, 105, 225, 0.2);
+
+    border-color: #4169e1;
+}
+
+/* =====================
+   ローマ字操作説明
+===================== */
+
+#keyboardHelp {
+    display: none;
+
+    width: 92%;
+    max-width: 520px;
+
+    margin: 12px auto 20px;
+    padding: 12px;
+
+    background: #ffffff;
+    border: 2px solid #dbe3f5;
+    border-radius: 14px;
+
+    box-shadow:
+        0 3px 10px
+        rgba(0, 0, 0, 0.07);
+}
+
+.keyboard-help-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    margin: 5px 7px;
+
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.keyboard-help-item kbd {
+    min-width: 48px;
+
+    padding: 5px 8px;
+
+    color: #24324a;
+    background: #f4f6fa;
+
+    border: 1px solid #aab4c8;
+    border-bottom-width: 3px;
+    border-radius: 6px;
+
+    font-family: inherit;
+    font-weight: bold;
 }
 
 /* =====================
    フリックキーボード
 ===================== */
 
-#flick-grid{
-
-    display:grid;
+#flick-grid {
+    display: grid;
 
     grid-template-columns:
-        repeat(3,80px);
+        repeat(3, 78px);
 
-    gap:10px;
+    gap: 10px;
 
-    justify-content:center;
+    justify-content: center;
 
-    margin:20px auto;
+    margin: 17px auto;
 }
 
-.flick-btn{
+.flick-btn,
+.utility-btn {
+    width: 78px;
+    height: 78px;
 
-    width:80px;
+    padding: 0;
 
-    height:80px;
+    color: #111827;
+    background: #edf2ff;
 
-    border:none;
+    border: 0;
+    border-radius: 13px;
 
-    border-radius:12px;
+    font-size: 2rem;
+    font-weight: bold;
 
-    background:#eef2ff;
-
-    font-size:2rem;
-
-    font-weight:bold;
-
-    cursor:pointer;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
 
     box-shadow:
-    0 2px 5px
-    rgba(0,0,0,.2);
+        0 3px 7px
+        rgba(0, 0, 0, 0.18);
 }
 
-.flick-btn:active{
-
-    background:#dce3ff;
+.utility-btn {
+    color: #334155;
+    background: #e5e7eb;
+    font-size: 1.1rem;
 }
 
-#modifyBtn,
-#deleteBtn{
-
-    width:80px;
-
-    height:80px;
-
-    border:none;
-
-    border-radius:12px;
-
-    font-size:1.1rem;
-
-    font-weight:bold;
-
-    background:#f0f0f0;
-
-    cursor:pointer;
-}
-
-#modifyBtn:active,
-#deleteBtn:active{
-
-    background:#dddddd;
+.flick-btn:active,
+.utility-btn:active {
+    background: #cfd9fa;
+    transform: scale(0.96);
 }
 
 /* =====================
-   ボタン
+   決定・ないボタン
 ===================== */
 
-.buttons{
+.buttons {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
 
-    margin-top:15px;
+    margin-top: 12px;
 }
 
-.buttons button{
+.buttons button {
+    width: 145px;
+    min-height: 55px;
 
-    margin:5px;
+    border: 0;
+    border-radius: 12px;
 
-    padding:12px 20px;
+    color: #ffffff;
 
-    font-size:1.1rem;
+    font-size: 1.2rem;
+    font-weight: bold;
 
-    border:none;
-
-    border-radius:10px;
-
-    cursor:pointer;
+    cursor: pointer;
 }
 
-#checkBtn{
-
-    background:#5a92ff;
-
-    color:white;
+#checkBtn {
+    background: #2563eb;
 }
 
-#nextBtn{
-
-    background:#5bc568;
-
-    color:white;
+#noneBtn {
+    background: #f59e0b;
 }
 
-#checkBtn:active,
-#nextBtn:active{
+.buttons button:active {
+    transform: scale(0.97);
+}
 
-    transform:scale(.98);
+.buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* =====================
-   結果表示
+   判定結果
 ===================== */
 
-#result{
+#result {
+    min-height: 48px;
 
-    margin-top:20px;
+    margin-top: 16px;
+    padding: 8px;
 
-    min-height:40px;
-
-    font-size:1.4rem;
-
-    font-weight:bold;
+    font-size: 1.3rem;
+    font-weight: bold;
 }
 
 /* =====================
-   スマホ最適化
+   スマートフォン
 ===================== */
 
-@media(max-width:600px){
-
-    .card{
-
-        width:100px;
-
-        height:140px;
-
-        font-size:60px;
+@media (max-width: 600px) {
+    #gameScreen {
+        padding-top: 8px;
     }
 
-    #answer{
-
-        font-size:1.5rem;
+    .game-header h1 {
+        font-size: 1.45rem;
     }
 
-    #flick-grid{
+    #cards {
+        gap: 9px;
+    }
 
+    .card {
+        width: 96px;
+        height: 125px;
+
+        font-size: 3.5rem;
+    }
+
+    .arrow {
+        font-size: 1.7rem;
+    }
+
+    #condition {
+        min-height: 50px;
+
+        margin: 5px auto;
+        padding: 6px;
+
+        font-size: 1.05rem;
+    }
+
+    #answer {
+        height: 52px;
+        font-size: 1.45rem;
+    }
+
+    #flick-grid {
         grid-template-columns:
-            repeat(3,70px);
+            repeat(3, 70px);
+
+        gap: 8px;
+
+        margin: 12px auto;
     }
 
     .flick-btn,
-    #modifyBtn,
-    #deleteBtn{
+    .utility-btn {
+        width: 70px;
+        height: 70px;
+    }
 
-        width:70px;
+    .keyboard-help-item {
+        display: flex;
+        justify-content: center;
+    }
+}
+/* =====================
+   ストップウォッチ
+===================== */
 
-        height:70px;
+.game-status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+
+    margin-top: 8px;
+}
+
+#stopwatch {
+    min-width: 128px;
+
+    padding: 8px 14px;
+
+    color: #ffffff;
+    background: #1e3a8a;
+
+    border-radius: 12px;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+
+    font-size: 1.35rem;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+
+    letter-spacing: 0.04em;
+
+    box-shadow:
+        0 4px 10px
+        rgba(30, 58, 138, 0.2);
+}
+
+#stopwatch.finished {
+    background: #15803d;
+}
+
+#remainingCount {
+    min-width: 75px;
+}
+
+@media (max-width: 600px) {
+    .game-status {
+        gap: 10px;
+    }
+
+    #stopwatch {
+        min-width: 112px;
+        padding: 7px 10px;
+        font-size: 1.15rem;
     }
 }

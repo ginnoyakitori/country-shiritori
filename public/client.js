@@ -2,9 +2,6 @@
 
 /* ==================================================
    カード構成
-
-   「ヲ」以外の文字を1枚ずつ使用し、
-   「同」カードを1枚追加する
 ================================================== */
 
 const cards = [
@@ -21,7 +18,6 @@ const cards = [
     "同"
 ];
 
-
 /* ==================================================
    ゲーム状態
 ================================================== */
@@ -34,7 +30,14 @@ let leftPile = [];
 let rightPile = [];
 
 let currentStart = "";
+let questionStart = "";
 let goalChar = "";
+
+/*
+ 同じ問題内で使用した単語を保存する。
+ 次の問題へ進むと空になる。
+*/
+let usedWords = new Set();
 
 let solved = false;
 let gameFinished = false;
@@ -48,7 +51,6 @@ let physicalInputEnabled = false;
 
 let romajiBuffer = "";
 
-
 /* ==================================================
    ストップウォッチ状態
 ================================================== */
@@ -57,7 +59,6 @@ let stopwatchStartTime = 0;
 let stopwatchElapsedTime = 0;
 let stopwatchAnimationId = null;
 let stopwatchRunning = false;
-
 
 /* ==================================================
    DOM要素
@@ -117,7 +118,6 @@ const modifyBtnEl =
 const deleteBtnEl =
     document.getElementById("deleteBtn");
 
-
 /* ==================================================
    CSV辞書の読み込み
 ================================================== */
@@ -166,7 +166,6 @@ async function loadDictionary() {
     );
 }
 
-
 /* ==================================================
    シャッフル
 ================================================== */
@@ -194,7 +193,6 @@ function shuffle(array) {
     return array;
 }
 
-
 /* ==================================================
    ひらがな・カタカナの正規化
 ================================================== */
@@ -209,7 +207,6 @@ function katakanaToHiragana(text) {
     );
 }
 
-
 function normalizeWord(text) {
     return katakanaToHiragana(
         String(text)
@@ -218,12 +215,11 @@ function normalizeWord(text) {
     );
 }
 
-
 /* ==================================================
-   しりとり用の文字正規化
+   しりとり用文字正規化
 
-   濁点・半濁点の付け外しを許可する
-   小文字は大文字として扱う
+   濁点、半濁点は外して比較する。
+   小さい文字は大きい文字として扱う。
 ================================================== */
 
 const shiritoriCharacterMap = {
@@ -273,7 +269,6 @@ const shiritoriCharacterMap = {
     "ゔ": "う"
 };
 
-
 function normalizeShiritoriChar(character) {
     const hiragana =
         katakanaToHiragana(
@@ -286,7 +281,6 @@ function normalizeShiritoriChar(character) {
         || hiragana
     );
 }
-
 
 /* ==================================================
    単語の先頭文字
@@ -306,12 +300,11 @@ function firstChar(word) {
     );
 }
 
-
 /* ==================================================
    単語の最後の文字
 
-   最後が小文字の場合は大文字にする
-   最後が「ー」「－」の場合は直前の文字を使う
+   小文字は大文字として扱う。
+   最後が「ー」「－」なら直前の文字を使う。
 
    例:
    ノルウェー → エ
@@ -349,7 +342,6 @@ function lastChar(word) {
     );
 }
 
-
 /* ==================================================
    辞書登録確認
 ================================================== */
@@ -360,14 +352,14 @@ function wordExists(word) {
     );
 }
 
-
 /* ==================================================
    「ない」の判定
 
-   現在の開始文字から辞書内の単語を使って、
-   最終的に目標文字で終われるかを探索する。
+   現在の開始文字から目標文字まで
+   到達できるかを幅優先探索する。
 
-   文字を頂点とした幅優先探索。
+   現在の問題ですでに使用された単語は
+   探索対象から除外する。
 ================================================== */
 
 function hasSolution(start, goal) {
@@ -378,13 +370,29 @@ function hasSolution(start, goal) {
         normalizeShiritoriChar(goal);
 
     const queue = [];
-    const visited = new Set();
+    const visitedCharacters =
+        new Set();
 
     /*
-     最初の文字から始まる単語を調べる
+     現在の文字から始まる単語を調べる
     */
 
     for (const word of dictionary) {
+        const normalizedWord =
+            normalizeWord(word);
+
+        /*
+         この問題で使用済みの単語は使えない
+        */
+
+        if (
+            usedWords.has(
+                normalizedWord
+            )
+        ) {
+            continue;
+        }
+
         if (
             firstChar(word)
             !== normalizedStart
@@ -401,26 +409,43 @@ function hasSolution(start, goal) {
             return true;
         }
 
-        if (!visited.has(ending)) {
-            visited.add(ending);
-            queue.push(ending);
+        if (
+            !visitedCharacters.has(
+                ending
+            )
+        ) {
+            visitedCharacters.add(
+                ending
+            );
+
+            queue.push(
+                ending
+            );
         }
     }
 
-    /*
-     到達した末尾文字から、
-     さらにしりとりを続ける
-    */
-
     let queueIndex = 0;
 
-    while (queueIndex < queue.length) {
+    while (
+        queueIndex < queue.length
+    ) {
         const current =
             queue[queueIndex];
 
         queueIndex++;
 
         for (const word of dictionary) {
+            const normalizedWord =
+                normalizeWord(word);
+
+            if (
+                usedWords.has(
+                    normalizedWord
+                )
+            ) {
+                continue;
+            }
+
             if (
                 firstChar(word)
                 !== current
@@ -437,16 +462,24 @@ function hasSolution(start, goal) {
                 return true;
             }
 
-            if (!visited.has(ending)) {
-                visited.add(ending);
-                queue.push(ending);
+            if (
+                !visitedCharacters.has(
+                    ending
+                )
+            ) {
+                visitedCharacters.add(
+                    ending
+                );
+
+                queue.push(
+                    ending
+                );
             }
         }
     }
 
     return false;
 }
-
 
 /* ==================================================
    ストップウォッチ
@@ -481,7 +514,6 @@ function formatStopwatchTime(milliseconds) {
     );
 }
 
-
 function updateStopwatch() {
     if (!stopwatchRunning) {
         return;
@@ -501,7 +533,6 @@ function updateStopwatch() {
             updateStopwatch
         );
 }
-
 
 function startStopwatch() {
     if (
@@ -531,7 +562,6 @@ function startStopwatch() {
             updateStopwatch
         );
 }
-
 
 function stopStopwatch() {
     if (!stopwatchRunning) {
@@ -564,7 +594,6 @@ function stopStopwatch() {
     );
 }
 
-
 function resetStopwatch() {
     stopwatchRunning = false;
     stopwatchElapsedTime = 0;
@@ -586,7 +615,6 @@ function resetStopwatch() {
         "finished"
     );
 }
-
 
 /* ==================================================
    ゲーム開始
@@ -611,13 +639,14 @@ function startGame() {
     solved = false;
     gameFinished = false;
 
+    usedWords.clear();
+
     resetStopwatch();
 
     nextTurn();
 
     startStopwatch();
 }
-
 
 /* ==================================================
    次の問題
@@ -653,7 +682,8 @@ function nextTurn() {
         rightPile.pop();
 
     /*
-     「同」は反対側の文字と同じ文字にする
+     「同」は反対側のカードと
+     同じ文字として扱う
     */
 
     if (left === "同") {
@@ -670,11 +700,24 @@ function nextTurn() {
     rightCardEl.textContent =
         right;
 
-    currentStart =
+    /*
+     問題が出た直後の開始文字を保存する
+    */
+
+    questionStart =
         normalizeShiritoriChar(left);
+
+    currentStart =
+        questionStart;
 
     goalChar =
         normalizeShiritoriChar(right);
+
+    /*
+     新しい問題なので使用済み単語を空にする
+    */
+
+    usedWords.clear();
 
     solved = false;
 
@@ -683,11 +726,57 @@ function nextTurn() {
 
     updateRemainingCount();
 
-    if (inputMethod === "romaji") {
+    if (
+        inputMethod === "romaji"
+    ) {
         answerEl.focus();
     }
 }
 
+/* ==================================================
+   現在の問題を出題直後の状態へ戻す
+
+   Escキーで実行する。
+
+   ・開始文字を左カードへ戻す
+   ・使用済み単語を解除する
+   ・回答欄を空にする
+   ・左右のカードは変更しない
+   ・ストップウォッチは継続する
+================================================== */
+
+function resetCurrentQuestion() {
+    if (
+        gameFinished
+        ||
+        solved
+    ) {
+        return;
+    }
+
+    currentStart =
+        questionStart;
+
+    usedWords.clear();
+
+    answerEl.value = "";
+    romajiBuffer = "";
+
+    conditionEl.textContent =
+        `「${leftCardEl.textContent}」から始めて「${rightCardEl.textContent}」で終わるしりとり`;
+
+    resultEl.textContent =
+        "この問題を最初の状態に戻しました";
+
+    resultEl.style.color =
+        "#d97706";
+
+    if (
+        inputMethod === "romaji"
+    ) {
+        answerEl.focus();
+    }
+}
 
 /* ==================================================
    残り問題数
@@ -701,14 +790,15 @@ function updateRemainingCount() {
         );
 
     if (gameFinished) {
-        remainingCountEl.textContent = "";
+        remainingCountEl.textContent =
+            "";
+
         return;
     }
 
     remainingCountEl.textContent =
         `残り ${remaining} 組`;
 }
-
 
 /* ==================================================
    ゲーム終了
@@ -720,8 +810,11 @@ function finishGame() {
 
     stopStopwatch();
 
-    leftCardEl.textContent = "終";
-    rightCardEl.textContent = "了";
+    leftCardEl.textContent =
+        "終";
+
+    rightCardEl.textContent =
+        "了";
 
     conditionEl.textContent =
         "すべてのカードが終了しました";
@@ -737,12 +830,14 @@ function finishGame() {
     answerEl.value = "";
     romajiBuffer = "";
 
+    usedWords.clear();
+
     checkBtnEl.disabled = true;
     noneBtnEl.disabled = true;
 
-    remainingCountEl.textContent = "";
+    remainingCountEl.textContent =
+        "";
 }
-
 
 /* ==================================================
    正解後の自動進行
@@ -768,9 +863,11 @@ function moveToNextTurnAfterSuccess(message) {
     );
 }
 
-
 /* ==================================================
    入力された単語の判定
+
+   同じ問題では同じ単語を
+   2回以上使用できない。
 ================================================== */
 
 function judge() {
@@ -795,6 +892,10 @@ function judge() {
         return;
     }
 
+    /*
+     辞書に登録されているか確認
+    */
+
     if (!wordExists(answer)) {
         resultEl.textContent =
             "× 登録されていない国名・首都名";
@@ -804,6 +905,10 @@ function judge() {
 
         return;
     }
+
+    /*
+     必要な文字から始まっているか確認
+    */
 
     const beginning =
         firstChar(answer);
@@ -820,14 +925,45 @@ function judge() {
         return;
     }
 
+    /*
+     同じ問題ですでに使用した単語か確認
+    */
+
+    const normalizedAnswer =
+        normalizeWord(answer);
+
+    if (
+        usedWords.has(
+            normalizedAnswer
+        )
+    ) {
+        resultEl.textContent =
+            `× 「${answer}」はこの問題ですでに使用しています`;
+
+        resultEl.style.color =
+            "red";
+
+        return;
+    }
+
+    /*
+     正しい回答として使用済みに追加
+    */
+
+    usedWords.add(
+        normalizedAnswer
+    );
+
     const ending =
         lastChar(answer);
 
     /*
-     右カードの文字で終わった場合は正解
+     右カードの文字で終わった場合
     */
 
-    if (ending === goalChar) {
+    if (
+        ending === goalChar
+    ) {
         moveToNextTurnAfterSuccess(
             `○ 正解！「${goalChar}」に到達`
         );
@@ -836,17 +972,17 @@ function judge() {
     }
 
     /*
-     右カードに到達していなければ
      しりとりを継続する
     */
 
-    currentStart = ending;
+    currentStart =
+        ending;
 
     conditionEl.textContent =
         `次は「${currentStart}」から始める（目標：「${goalChar}」）`;
 
     resultEl.textContent =
-        `○ 続行。次は「${currentStart}」`;
+        `○ 続行。次は「${currentStart}」（使用済み ${usedWords.size}語）`;
 
     resultEl.style.color =
         "#2563eb";
@@ -854,11 +990,12 @@ function judge() {
     answerEl.value = "";
     romajiBuffer = "";
 
-    if (inputMethod === "romaji") {
+    if (
+        inputMethod === "romaji"
+    ) {
         answerEl.focus();
     }
 }
-
 
 /* ==================================================
    「ない」の正誤判定
@@ -894,7 +1031,6 @@ function judgeNone() {
     );
 }
 
-
 /* ==================================================
    回答欄の操作
 ================================================== */
@@ -911,7 +1047,6 @@ function appendAnswerCharacter(character) {
         answerEl.scrollWidth;
 }
 
-
 function deleteLastCharacter() {
     const characters = [
         ...answerEl.value
@@ -925,7 +1060,6 @@ function deleteLastCharacter() {
     answerEl.scrollLeft =
         answerEl.scrollWidth;
 }
-
 
 /* ==================================================
    フリック入力データ
@@ -950,7 +1084,6 @@ const flickData = {
     "ラ": ["ル", "レ", "ロ", "リ", "ラ"],
     "ワ": ["ン", "ー", "", "ヲ", "ワ"]
 };
-
 
 /* ==================================================
    濁点・半濁点・小文字変換
@@ -994,14 +1127,12 @@ const transformChainMap = {
     "ワ": ["ワ", "ヮ"]
 };
 
-
 /* ==================================================
    フリック入力用変数
 ================================================== */
 
 let flickStartX = 0;
 let flickStartY = 0;
-
 
 /* ==================================================
    フリック方向判定
@@ -1013,10 +1144,6 @@ function getFlickDirection(
 ) {
     const threshold = 25;
 
-    /*
-     動きが小さければ中央タップ
-    */
-
     if (
         Math.abs(differenceX) < threshold
         &&
@@ -1024,10 +1151,6 @@ function getFlickDirection(
     ) {
         return 4;
     }
-
-    /*
-     横方向
-    */
 
     if (
         Math.abs(differenceX)
@@ -1041,17 +1164,12 @@ function getFlickDirection(
         );
     }
 
-    /*
-     縦方向
-    */
-
     return (
         differenceY > 0
             ? 2
             : 0
     );
 }
-
 
 /* ==================================================
    フリック開始
@@ -1077,12 +1195,10 @@ function flickPointerDownHandler(event) {
             );
     } catch (error) {
         /*
-         Pointer Capture非対応の場合は
-         何もしない
+         Pointer Capture非対応時は何もしない
         */
     }
 }
-
 
 /* ==================================================
    フリック終了
@@ -1119,7 +1235,6 @@ function flickPointerUpHandler(event) {
         character
     );
 }
-
 
 /* ==================================================
    フリックキーボード初期化
@@ -1160,7 +1275,6 @@ function initializeFlickKeyboard() {
     });
 }
 
-
 function enableFlickInput() {
     flickInputEnabled = true;
 
@@ -1168,14 +1282,12 @@ function enableFlickInput() {
         "grid";
 }
 
-
 function disableFlickInput() {
     flickInputEnabled = false;
 
     flickGridEl.style.display =
         "none";
 }
-
 
 /* ==================================================
    濁点・半濁点・小文字切替
@@ -1186,7 +1298,9 @@ function modifyLastCharacter() {
         ...answerEl.value
     ];
 
-    if (characters.length === 0) {
+    if (
+        characters.length === 0
+    ) {
         return;
     }
 
@@ -1201,8 +1315,12 @@ function modifyLastCharacter() {
             transformChainMap
         )
     ) {
-        if (chain.includes(last)) {
-            selectedChain = chain;
+        if (
+            chain.includes(last)
+        ) {
+            selectedChain =
+                chain;
+
             break;
         }
     }
@@ -1229,7 +1347,6 @@ function modifyLastCharacter() {
     answerEl.scrollLeft =
         answerEl.scrollWidth;
 }
-
 
 /* ==================================================
    ローマ字変換表
@@ -1474,7 +1591,6 @@ const romajiToKanaMap = {
     "-": "ー"
 };
 
-
 const romajiKeys =
     Object.keys(
         romajiToKanaMap
@@ -1485,7 +1601,6 @@ const romajiKeys =
             - first.length
     );
 
-
 const vowels =
     new Set([
         "a",
@@ -1494,7 +1609,6 @@ const vowels =
         "e",
         "o"
     ]);
-
 
 /* ==================================================
    ローマ字の接頭辞確認
@@ -1507,34 +1621,45 @@ function hasRomajiPrefix(text) {
     );
 }
 
-
 /* ==================================================
    ローマ字バッファをカタカナへ変換
+
+   nnを入力した時点で、
+   2文字のnを両方消費して「ン」にする。
+
+   例:
+   nn   → ン
+   nnsa → ンサ
+   nnka → ンカ
 ================================================== */
 
 function processRomajiBuffer(
     forceComplete = false
 ) {
-    while (romajiBuffer.length > 0) {
+    while (
+        romajiBuffer.length > 0
+    ) {
         /*
-         n単独は通常は次の入力待ち。
-         Enter時はンとして確定。
+         nnを入力した時点で「ン」に確定する
         */
 
-        if (romajiBuffer === "n") {
-            if (forceComplete) {
-                appendAnswerCharacter(
-                    "ン"
-                );
+        if (
+            romajiBuffer.startsWith(
+                "nn"
+            )
+        ) {
+            appendAnswerCharacter(
+                "ン"
+            );
 
-                romajiBuffer = "";
-            }
+            romajiBuffer =
+                romajiBuffer.slice(2);
 
-            break;
+            continue;
         }
 
         /*
-         n' → ン
+         n'も「ン」に確定する
         */
 
         if (
@@ -1553,27 +1678,31 @@ function processRomajiBuffer(
         }
 
         /*
-         nnの場合は最初のnをンに確定。
-         2文字目のnはナ行入力に利用できる。
+         n単独は次の入力を待つ。
+         Enterの場合は「ン」にする。
         */
 
         if (
-            romajiBuffer.startsWith(
-                "nn"
-            )
+            romajiBuffer === "n"
         ) {
-            appendAnswerCharacter(
-                "ン"
-            );
+            if (forceComplete) {
+                appendAnswerCharacter(
+                    "ン"
+                );
 
-            romajiBuffer =
-                romajiBuffer.slice(1);
+                romajiBuffer = "";
+            }
 
-            continue;
+            break;
         }
 
         /*
-         nの次が母音、y、n以外ならン
+         nの次が母音、y、n以外なら
+         nを「ン」にする。
+
+         例:
+         nsa → ンサ
+         nka → ンカ
         */
 
         if (
@@ -1603,8 +1732,7 @@ function processRomajiBuffer(
         }
 
         /*
-         同じ子音が2つ続いたら促音
-         例: kka → ッカ
+         同じ子音が2つ続いたら促音にする
         */
 
         if (
@@ -1630,12 +1758,14 @@ function processRomajiBuffer(
         }
 
         /*
-         最長一致
+         ローマ字変換表から最長一致で探す
         */
 
         let matchedKey = null;
 
-        for (const key of romajiKeys) {
+        for (
+            const key of romajiKeys
+        ) {
             if (
                 romajiBuffer.startsWith(
                     key
@@ -1657,11 +1787,6 @@ function processRomajiBuffer(
                             romajiBuffer
                         )
                 );
-
-            /*
-             より長い候補がある場合は
-             次の入力を待つ
-            */
 
             if (
                 !forceComplete
@@ -1703,7 +1828,7 @@ function processRomajiBuffer(
         }
 
         /*
-         Enter時に残ったnをンにする
+         Enter時に残ったnは「ン」にする
         */
 
         if (
@@ -1722,7 +1847,7 @@ function processRomajiBuffer(
         }
 
         /*
-         変換できない文字は破棄
+         変換できない文字は破棄する
         */
 
         romajiBuffer =
@@ -1730,14 +1855,13 @@ function processRomajiBuffer(
     }
 }
 
-
 /* ==================================================
    ローマ字キーボード入力
 
    Enter       決定
    Space       ない
-   Backspace   削除
-   Escape      全消去
+   Backspace   1文字削除
+   Escape      現在の問題を最初からやり直す
 ================================================== */
 
 function physicalInputKeydownHandler(event) {
@@ -1745,17 +1869,41 @@ function physicalInputKeydownHandler(event) {
         !physicalInputEnabled
         ||
         gameFinished
-        ||
-        solved
     ) {
         return;
     }
 
     /*
-     Enterキーで決定
+     Escは、回答済みかどうかにかかわらず
+     最初に判定する。
     */
 
-    if (event.key === "Enter") {
+    if (
+        event.key === "Escape"
+    ) {
+        event.preventDefault();
+
+        resetCurrentQuestion();
+
+        return;
+    }
+
+    /*
+     正解後の自動進行待ちでは
+     Esc以外の入力を受け付けない
+    */
+
+    if (solved) {
+        return;
+    }
+
+    /*
+     Enterで決定
+    */
+
+    if (
+        event.key === "Enter"
+    ) {
         event.preventDefault();
 
         processRomajiBuffer(
@@ -1768,7 +1916,7 @@ function physicalInputKeydownHandler(event) {
     }
 
     /*
-     スペースキーで「ない」
+     Spaceで「ない」
     */
 
     if (
@@ -1787,7 +1935,7 @@ function physicalInputKeydownHandler(event) {
     }
 
     /*
-     Backspaceキーで削除
+     Backspaceで削除
     */
 
     if (
@@ -1795,7 +1943,9 @@ function physicalInputKeydownHandler(event) {
     ) {
         event.preventDefault();
 
-        if (romajiBuffer.length > 0) {
+        if (
+            romajiBuffer.length > 0
+        ) {
             romajiBuffer =
                 romajiBuffer.slice(
                     0,
@@ -1809,22 +1959,7 @@ function physicalInputKeydownHandler(event) {
     }
 
     /*
-     Escapeキーで全消去
-    */
-
-    if (
-        event.key === "Escape"
-    ) {
-        event.preventDefault();
-
-        romajiBuffer = "";
-        answerEl.value = "";
-
-        return;
-    }
-
-    /*
-     ショートカットキーは無視
+     Ctrlなどの組み合わせは無視
     */
 
     if (
@@ -1838,8 +1973,7 @@ function physicalInputKeydownHandler(event) {
     }
 
     /*
-     英字・ハイフン・アポストロフィを
-     ローマ字入力として受け付ける
+     英字、ハイフン、アポストロフィを受け付ける
     */
 
     if (
@@ -1862,13 +1996,14 @@ function physicalInputKeydownHandler(event) {
     }
 }
 
-
 function enablePhysicalInput() {
-    physicalInputEnabled = true;
+    physicalInputEnabled =
+        true;
+
     romajiBuffer = "";
 
     /*
-     重複登録を防止
+     イベントの重複登録を防ぐ
     */
 
     document.removeEventListener(
@@ -1884,9 +2019,10 @@ function enablePhysicalInput() {
     answerEl.focus();
 }
 
-
 function disablePhysicalInput() {
-    physicalInputEnabled = false;
+    physicalInputEnabled =
+        false;
+
     romajiBuffer = "";
 
     document.removeEventListener(
@@ -1894,7 +2030,6 @@ function disablePhysicalInput() {
         physicalInputKeydownHandler
     );
 }
-
 
 /* ==================================================
    入力方法の選択
@@ -1914,7 +2049,6 @@ document
         );
     });
 
-
 /* ==================================================
    ゲーム開始ボタン
 ================================================== */
@@ -1922,12 +2056,14 @@ document
 startBtnEl.addEventListener(
     "click",
     async () => {
-        startBtnEl.disabled = true;
+        startBtnEl.disabled =
+            true;
 
         startBtnEl.textContent =
             "読み込み中…";
 
-        loadErrorEl.textContent = "";
+        loadErrorEl.textContent =
+            "";
 
         try {
             await loadDictionary();
@@ -1942,7 +2078,8 @@ startBtnEl.addEventListener(
              ブラウザ標準キーボードを表示しない
             */
 
-            answerEl.readOnly = true;
+            answerEl.readOnly =
+                true;
 
             answerEl.setAttribute(
                 "inputmode",
@@ -1952,10 +2089,6 @@ startBtnEl.addEventListener(
             if (
                 inputMethod === "flick"
             ) {
-                /*
-                 フリック入力を有効化
-                */
-
                 disablePhysicalInput();
                 enableFlickInput();
 
@@ -1964,12 +2097,7 @@ startBtnEl.addEventListener(
 
                 keyboardHelpEl.style.display =
                     "none";
-
             } else {
-                /*
-                 ローマ字入力を有効化
-                */
-
                 disableFlickInput();
                 enablePhysicalInput();
 
@@ -1997,7 +2125,6 @@ startBtnEl.addEventListener(
     }
 );
 
-
 /* ==================================================
    フリック入力の決定ボタン
 ================================================== */
@@ -2014,7 +2141,6 @@ checkBtnEl.addEventListener(
         judge();
     }
 );
-
 
 /* ==================================================
    フリック入力の「ない」ボタン
@@ -2035,7 +2161,6 @@ noneBtnEl.addEventListener(
     }
 );
 
-
 /* ==================================================
    濁点・小文字ボタン
 ================================================== */
@@ -2052,7 +2177,6 @@ modifyBtnEl.addEventListener(
         modifyLastCharacter();
     }
 );
-
 
 /* ==================================================
    削除ボタン
@@ -2071,7 +2195,6 @@ deleteBtnEl.addEventListener(
     }
 );
 
-
 /* ==================================================
    初期化
 ================================================== */
@@ -2079,7 +2202,7 @@ deleteBtnEl.addEventListener(
 initializeFlickKeyboard();
 
 /*
- ゲーム開始前は両方の入力を無効にする
+ ゲーム開始前は両方の入力方式を無効にする
 */
 
 disableFlickInput();
